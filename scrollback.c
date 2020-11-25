@@ -420,7 +420,6 @@ void programtoterminal(unsigned char c, const struct winsize *winsize) {
 
 	if (debug & DEBUGBUFFER) {
 		lseek(logbuffer, 0, SEEK_SET);
-		// fixme: do not read buffer over its end
 		write(logbuffer, buffer, sizeof(u_int32_t) * BUFFERSIZE);
 	}
 }
