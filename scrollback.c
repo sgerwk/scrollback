@@ -256,18 +256,29 @@ void showscrollback(const struct winsize *winsize) {
 /*
  * ask the current position
  */
-int askposition() {
+int askposition(int ask) {
 	int y, x;
 	char s, t;
 
-	fprintf(stdout, ASKPOSITION);
-	fflush(stdout);
+	if (debug & DEBUGESCAPE)
+		fprintf(logescape, "[askposition]");
+
+	if (ask) {
+		fprintf(stdout, ASKPOSITION);
+		fflush(stdout);
+	}
 	while (4 != fscanf(stdin, GETPOSITION, &s, &y, &x, &t) ||
 	       s != GETPOSITIONSTARTER ||
 	       t != GETPOSITIONTERMINATOR) {
+		if (debug & DEBUGESCAPE)
+			fprintf(logescape, "[skip]");
 	}
 	row = y - 1;
 	col = x - 1;
+
+	if (debug & DEBUGESCAPE)
+		fprintf(logescape, "[answer:%d,%d]", row, col);
+
 	return 1;
 }
 
@@ -298,9 +309,11 @@ int escape = -1;
 unsigned char utf8[SEQUENCELEN];
 int utf8pos = 0, utf8len = 0;
 int new = 1;
-void programtoterminal(unsigned char c, const struct winsize *winsize) {
+void programtoterminal(int master, unsigned char c,
+		const struct winsize *winsize) {
 	int pos, i;
 	u_int32_t w;
+	char buf[20];
 
 				/* input character: end scrolling mode */
 
@@ -343,6 +356,13 @@ void programtoterminal(unsigned char c, const struct winsize *winsize) {
 		if (! strcmp(sequence, ERASEDISPLAY))
 			for (i = 0; i < winsize->ws_row * winsize->ws_col; i++)
 				buffer[(origin + i) % BUFFERSIZE] = ' ';
+		else if (! strcmp(sequence, ASKPOSITION)) {
+			askposition(0);
+			sprintf(buf, "\033[%d;%dR", row + 1, col + 1);
+			write(master, buf, strlen(buf));
+			if (debug & DEBUGESCAPE)
+				fprintf(logescape, "tin(%s)", buf);
+		}
 		escape = -1;
 		return;
 	}
@@ -350,7 +370,7 @@ void programtoterminal(unsigned char c, const struct winsize *winsize) {
 					/* put character on vt */
 
 	if (new) {
-		askposition();
+		askposition(1);
 		new = 0;
 	}
 	putc(c, stdout);
@@ -529,7 +549,6 @@ void parent(int master, pid_t pid, const struct winsize *winsize) {
 	nolinebuffering();
 	for (i = 0; i < BUFFERSIZE; i++)
 		buffer[i] = ' ';
-	askposition();
 	origin = 0;
 	show = 0;
 
@@ -555,7 +574,7 @@ void parent(int master, pid_t pid, const struct winsize *winsize) {
 			if (len == -1)
 				break;
 			for (i = 0; i < len; i++)
-				programtoterminal(buf[i], winsize);
+				programtoterminal(master, buf[i], winsize);
 			fflush(stdout);
 		}
 		FD_ZERO(&sin);
