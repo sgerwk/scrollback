@@ -308,7 +308,7 @@ char sequence[SEQUENCELEN];
 int escape = -1;
 unsigned char utf8[SEQUENCELEN];
 int utf8pos = 0, utf8len = 0;
-int new = 1;
+int unknownposition = 1;
 void programtoterminal(int master, unsigned char c,
 		const struct winsize *winsize) {
 	int pos, i;
@@ -329,14 +329,14 @@ void programtoterminal(int master, unsigned char c,
 		if (debug & DEBUGESCAPE)
 			putc(c, logescape);
 		escape = -1;
-		new = 1;
+		unknownposition = 1;
 		utf8pos = 0;
 		return;
 	}
 
 	if (escape == -1 && c == ESCAPE) {
 		escape = 0;
-		new = 1;
+		unknownposition = 1;
 	}
 
 	if (escape >= 0) {
@@ -362,6 +362,7 @@ void programtoterminal(int master, unsigned char c,
 			write(master, buf, strlen(buf));
 			if (debug & DEBUGESCAPE)
 				fprintf(logescape, "tin(%s)", buf);
+			unknownposition = 0;
 		}
 		escape = -1;
 		return;
@@ -369,9 +370,9 @@ void programtoterminal(int master, unsigned char c,
 
 					/* put character on vt */
 
-	if (new) {
+	if (unknownposition) {
 		askposition(1);
-		new = 0;
+		unknownposition = 0;
 	}
 	putc(c, stdout);
 	if (debug & DEBUGESCAPE)
