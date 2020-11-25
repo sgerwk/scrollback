@@ -389,7 +389,7 @@ void programtoterminal(unsigned char c, const struct winsize *winsize) {
 		else {
 			utf8[utf8pos] = '\0';
 			if (debug & DEBUGESCAPE)
-				fprintf(logescape, "[UTF8:%s]", sequence);
+				fprintf(logescape, "[UTF8:%s]", utf8);
 			w = utf8toucs4(utf8);
 		}
 	}
