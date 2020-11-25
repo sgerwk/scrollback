@@ -56,7 +56,7 @@ int debug = DEBUGESCAPE;
 FILE *logescape;
 int logbuffer;
 
-#define LOGDIR    "/run/user/1000"
+#define LOGDIR    "/run/user/%d"
 #define LOGESCAPE (LOGDIR "/" "logescape")
 #define LOGBUFFER (LOGDIR "/" "logbuffer")
 
@@ -499,21 +499,30 @@ void parent(int master, pid_t pid, const struct winsize *winsize) {
 	fd_set sin;
 	char buf[1024];
 	int len, i;
+	char logname[4096];
 
 	(void) pid;
 
 	if (debug & DEBUGESCAPE) {
-		logescape = fopen(LOGESCAPE, "w");
+		if (strstr(LOGESCAPE, "%d"))
+			snprintf(logname, 4096, LOGESCAPE, getuid());
+		else
+			strncpy(logname, LOGESCAPE, 4096);
+		logescape = fopen(logname, "w");
 		if (logescape == NULL) {
-			perror(LOGESCAPE);
+			perror(logname);
 			exit(EXIT_FAILURE);
 		}
 	}
 	if (debug & DEBUGBUFFER) {
+		if (strstr(LOGBUFFER, "%d"))
+			snprintf(logname, 4096, LOGBUFFER, getuid());
+		else
+			strncpy(logname, LOGBUFFER, 4096);
 		logbuffer =
-			creat(LOGBUFFER, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+			creat(logname, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
 		if (logbuffer == -1) {
-			perror(LOGBUFFER);
+			perror(logname);
 			exit(EXIT_FAILURE);
 		}
 	}
