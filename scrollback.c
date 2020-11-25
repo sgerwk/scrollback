@@ -430,7 +430,7 @@ void programtoterminal(unsigned char c, const struct winsize *winsize) {
  */
 int special = -1;
 char specialsequence[SEQUENCELEN];
-void terminaltoprogram(int master, unsigned char c,
+void terminaltoprogram(int master, unsigned char c, int next,
 		const struct winsize *winsize) {
 	int len;
 	int pos, size, all;
@@ -439,7 +439,7 @@ void terminaltoprogram(int master, unsigned char c,
 	if (debug & DEBUGESCAPE)
 		putc(c, logescape);
 
-	if (c == ESCAPE)
+	if (c == ESCAPE && next)
 		special = 0;
 
 	if (special >= 0) {
@@ -537,7 +537,8 @@ void parent(int master, pid_t pid, const struct winsize *winsize) {
 			if (debug & DEBUGESCAPE)
 				fprintf(logescape, "\nin[%d](", len);
 			for (i = 0; i < len; i++)
-				terminaltoprogram(master, buf[i], winsize);
+				terminaltoprogram(master, buf[i], i < len - 1,
+					winsize);
 			if (debug & DEBUGESCAPE)
 				fprintf(logescape, ")\n");
 		}
