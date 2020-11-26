@@ -14,7 +14,6 @@
  * tbd: option -k for doing the same as "loadkeys keys.txt"
  * tbd: option for single-char encodings (singlechar)
  * tbd: implement common cursor movements instead of asking the position
- * tbd: cursor position does not change on the very common commands ESC[...m
  */
 
 /*
@@ -443,7 +442,8 @@ void programtoterminal(int master, unsigned char c) {
 			return;
 		}
 		escape = -1;
-		unknownposition = 1;
+		if (sequence[1] != '[' || c != 'm')
+			unknownposition = 1;
 		return;
 	}
 
