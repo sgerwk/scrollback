@@ -144,7 +144,7 @@ int keytofunction(int keycode, int shift, char **keystring) {
 	kbe.kb_index = keycode;
 	res = ioctl(0, KDGKBENT, &kbe);
 	if (res != 0)
-		return 1;
+		return -1;
 	switch (kbe.kb_value) {
 	case K_HOLE:
 		printf("K_HOLE\n");
@@ -156,44 +156,58 @@ int keytofunction(int keycode, int shift, char **keystring) {
 		printf("K_ALLOCATED\n");
 		return 0;
 	default:
-		printf("%d: ", kbe.kb_value);
-		printf("%d ",  KTYP(kbe.kb_value));
-		printf("%d\n", KVAL(kbe.kb_value));
+		;
+		// printf("%d: ", kbe.kb_value);
+		// printf("%d ",  KTYP(kbe.kb_value));
+		// printf("%d\n", KVAL(kbe.kb_value));
 	}
 
 	if (KTYP(kbe.kb_value) != KT_FN) {
-		printf("not a function key\n");
+		// printf("not a function key\n");
 		return 0;
 	}
 
 	kbse.kb_func = KVAL(kbe.kb_value);
 	if (res != 0)
-		return 1;
+		return -1;
 	res = ioctl(0, KDGKBSENT, &kbse);
-	for (i = 0; kbse.kb_string[i] != '\0'; i++)
+	for (i = 0; 0 && kbse.kb_string[i] != '\0'; i++)
 		if (kbse.kb_string[i] == ESCAPE)
 			printf("ESC");
 		else
 			printf("%c", kbse.kb_string[i]);
-	printf("\n");
+	// printf("\n");
 
 	*keystring = strdup((char *) kbse.kb_string);
-	return 0;
+	return 1;
 }
 
 /*
  * control codes for the scrolling keys
  */
 int scrollkeys() {
+	int res;
+
 	scrollup = KEYF11;
 	scrolldown = KEYF12;
 
-	if (keytofunction(keycodeup, K_SHIFTTAB, &scrollup))
-		return 1;
-	if (keytofunction(keycodedown, K_SHIFTTAB, &scrolldown))
-		return 1;
+	res = keytofunction(keycodeup, K_SHIFTTAB, &scrollup);
+	if (res == 0)
+		printf("scrollup is F11\n");
+	else if (res == -1)
+		return res;
+	else
+		printf("scrollup is shift-pageup\n");
 
-	return 0;
+	res = keytofunction(keycodedown, K_SHIFTTAB, &scrolldown);
+	if (res == 0)
+		printf("scrolldown is F12\n");
+	else if (res == -1)
+		return res;
+	else
+		printf("scrolldown is shift-pagedown\n");
+
+	return res;
 }
 
 /*
@@ -763,8 +777,8 @@ int main(int argn, char *argv[]) {
 					/* scroll keys */
 
 	res = scrollkeys();
-	if (res) {
-		printf("cannot determine scoll keys\n");
+	if (res == -1) {
+		printf("cannot determine scroll keys\n");
 		exit(EXIT_FAILURE);
 	}
 
