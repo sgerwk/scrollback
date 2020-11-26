@@ -13,7 +13,53 @@
  * tbd: when scrolling, also use up/down for scrolling 1 line
  * tbd: option -k for doing the same as "loadkeys keys.txt"
  * tbd: option for single-char encodings (singlechar)
- * tbd: implement cursor movements instead of asking the position
+ * tbd: implement common cursor movements instead of asking the position
+ * tbd: cursor position does not change on the very common commands ESC[...m
+ */
+
+/*
+ * cursor position
+ * ---------------
+ *
+ * most data is passed unchanged from the terminal to the shell and back; the
+ * characters that are printed are also stored in the scrollback buffer; this
+ * requires the current cursor position
+ *
+ * rather than trying to follow the cursor across the many cursor movement
+ * commands (move, save/restore, move to tab stop), whenever its position is
+ * needed it is found by asking the terminal via the ESC[6n command; the answer
+ * to this command is intercepted and not sent to the shell
+ *
+ * the answer may be preceded by other characters coming from the terminal;
+ * they have to be processed as usual; at the same time, data is not to be read
+ * from the shell while waiting for the answer; this is achieved by:
+ *
+ * int unknownposition
+ *	whether the cursor position is known
+ *
+ * void knowposition(int master, int ask);
+ *	ask the terminal for the current position and wait for an answer; the
+ *	latter is done by calling exchange() to only receive data from the
+ *	terminal with a timeout
+ *
+ * int exchange(int master, int readshell, struct timeval *timeout);
+ *	process a single data block from the terminal or the shell; parameters
+ *	readshell and timeout tell whether to read from the shell and whether
+ *	to timeout reading; data from the terminal is forwarded to the shell
+ *	except the cursor position answers
+ *
+ * void parent(int master, pid_t pid);
+ *	the main loop; calls exchange() to pass data between the terminal and
+ *	the shell in both directions with no timeout
+ *
+ * a ESC[6n command coming from the shell (not generated internally by this
+ * program) is forwarded to the terminal as the others; knowposition() is then
+ * called with ask=0 to skip asking the terminal for the cursor position but to
+ * still process data coming from the terminal as usual until an answer is
+ * received; at that point, an answer is built and sent to the shell
+ *
+ * the timeout is avoids the terminal locking if for some reason the terminal
+ * does not answer the cursor position query at all
  */
 
 #include <stdlib.h>
@@ -24,6 +70,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
+#include <errno.h>
 #include <pty.h>
 #include <linux/kd.h>
 #include <linux/keyboard.h>
@@ -64,7 +111,8 @@ int logbuffer;
  * keys and escape sequences
  */
 #define ESCAPE                0x1B
-#define FFEED                 0x0B
+#define NL                    0x0A
+#define CR                    0x0D
 
 #define KEYF11                "\033[23~"
 #define KEYF12                "\033[24~"
@@ -72,12 +120,14 @@ int logbuffer;
 #define KEYSHIFTPAGEDOWN      "\033[12~"
 
 #define ASKPOSITION           "\033[6n"
+#define ANSWERPOSITION        "\033[%d;%dR"
 #define GETPOSITION           "%c[%d;%d%c"
-#define GETPOSITIONSTARTER    ESCAPE
-#define GETPOSITIONTERMINATOR            'R'
+#define GETPOSITIONSTARTER     ESCAPE
+#define GETPOSITIONTERMINATOR          'R'
 #define BLUEBACKGROUND        "\033[44m"
 #define NORMALBACKGROUND      "\033[49m"
-#define ERASEDISPLAY          "\033[J"
+#define ERASECURSORDISPLAY    "\033[J"
+#define ERASEDISPLAY          "\033[2J"
 #define HOMEPOSITION          "\033[H"
 #define SAVECURSOR            "\033[s"
 #define RESTORECURSOR         "\033[u"
@@ -214,25 +264,32 @@ void ucs4toutf8(u_int32_t ucs4, char buf[10]) {
  */
 #define BUFFERSIZE (8 * 1024)
 u_int32_t buffer[BUFFERSIZE];
-int origin, show;
-int row, col;
+int origin;		/* start of region storing a copy of the screen */
+int show;		/* start of region that is shown when scrolling */
+
+/*
+ * the screen
+ */
+struct winsize winsize;	/* screen size */
+int row, col;		/* position of the cursor */
+int unknownposition;	/* is the cursor position known? */
 
 /*
  * show a segment of the scrollback buffer on screen
  */
 #define BARUP   "            " BLUEBACKGROUND "↑↑↑↑↑↑↑↑↑" NORMALBACKGROUND
 #define BARDOWN "            " BLUEBACKGROUND "↓↓↓↓↓↓↓↓↓" NORMALBACKGROUND
-void showscrollback(const struct winsize *winsize) {
+void showscrollback() {
 	int size, all, rows, i;
 	char buf[10];
 
-	size = (winsize->ws_row - (show == origin ? 0 : 2)) * winsize->ws_col;
+	size = (winsize.ws_row - (show == origin ? 0 : 2)) * winsize.ws_col;
 	fprintf(stdout, HOMEPOSITION ERASEDISPLAY);
 	if (show != origin) {
-		all = winsize->ws_row * winsize->ws_col;
-		rows = (BUFFERSIZE - all) / winsize->ws_col;
-		if (show - winsize->ws_col >= 0 &&
-		    rows > (origin - show) / winsize->ws_col)
+		all = winsize.ws_row * winsize.ws_col;
+		rows = (BUFFERSIZE - all) / winsize.ws_col;
+		if (show - winsize.ws_col >= 0 &&
+		    rows > (origin - show) / winsize.ws_col)
 			fprintf(stdout, BARUP);
 		fprintf(stdout, "\r\n");
 	}
@@ -246,7 +303,7 @@ void showscrollback(const struct winsize *winsize) {
 	}
 	if (show != origin) {
 		fprintf(stdout, BARDOWN "       %d lines below",
-			(origin - show) / winsize->ws_col);
+			(origin - show) / winsize.ws_col);
 	}
 	else
 		fprintf(stdout, RESTORECURSOR);
@@ -254,64 +311,75 @@ void showscrollback(const struct winsize *winsize) {
 }
 
 /*
- * ask the current position
+ * exchange one block of data between terminal and shell (forward declaration)
  */
-int askposition(int ask) {
-	int y, x;
-	char s, t;
+int exchange(int master, int readshell, struct timeval *timeout);
+
+/*
+ * make the current position known
+ */
+void knowposition(int master, int ask) {
+	struct timeval tv;
+	int i;
+
+	if (ask && ! unknownposition)
+		return;
 
 	if (debug & DEBUGESCAPE)
-		fprintf(logescape, "[askposition]");
+		fprintf(logescape, "[knowposition(%d)]", ask);
 
 	if (ask) {
 		fprintf(stdout, ASKPOSITION);
 		fflush(stdout);
 	}
-	while (4 != fscanf(stdin, GETPOSITION, &s, &y, &x, &t) ||
-	       s != GETPOSITIONSTARTER ||
-	       t != GETPOSITIONTERMINATOR) {
-		if (debug & DEBUGESCAPE)
-			fprintf(logescape, "[skip]");
+
+	for (i = 0; i < 4 && unknownposition; i++) {
+		tv.tv_sec = 0;
+		tv.tv_usec = 100000;
+		exchange(master, 0, &tv);
+		// fixme: if return is -1, terminate everything
 	}
-	row = y - 1;
-	col = x - 1;
 
 	if (debug & DEBUGESCAPE)
 		fprintf(logescape, "[answer:%d,%d]", row, col);
+}
 
-	return 1;
+/*
+ * erase part of the scrollback buffer
+ */
+void erase(int startrow, int startcol, int endcol) {
+	int start, i;
+	start = winsize.ws_col * startrow;
+	for (i = start + startcol; i < start + endcol; i++)
+		buffer[(origin + i) % BUFFERSIZE] = ' ';
+	start += winsize.ws_col;
+	for (i = start; i < winsize.ws_row * winsize.ws_col; i++)
+		buffer[(origin + i) % BUFFERSIZE] = ' ';
 }
 
 /*
  * new row
  */
-void newrow(const struct winsize *winsize) {
-	int i, pos;
-	if (row < winsize->ws_row - 1)
+void newrow() {
+	if (row < winsize.ws_row - 1)
 		row++;
 	else {
-		origin += winsize->ws_col;
+		origin += winsize.ws_col;
 		show = origin;
-		for (i = 0; i < winsize->ws_col; i++) {
-			pos = origin +
-			      (winsize->ws_row - 1) * winsize->ws_col + i;
-			buffer[pos % BUFFERSIZE] = ' ';
-		}
+		erase(winsize.ws_row - 1, 0, winsize.ws_col);
 	}
 }
 
 /*
  * process a character from the program
  */
-#define SEQUENCELEN 20
+#define SEQUENCELEN 40
 char sequence[SEQUENCELEN];
 int escape = -1;
 unsigned char utf8[SEQUENCELEN];
 int utf8pos = 0, utf8len = 0;
-int unknownposition = 1;
-void programtoterminal(int master, unsigned char c,
-		const struct winsize *winsize) {
-	int pos, i;
+void programtoterminal(int master, unsigned char c) {
+	int pos;
 	u_int32_t w;
 	char buf[20];
 
@@ -324,7 +392,7 @@ void programtoterminal(int master, unsigned char c,
 
 				/* escape and special characters */
 
-	if (c <= 0x1F && c != ESCAPE && c != '\b' && c != '\n' && c != FFEED) {
+	if (c <= 0x1F && c != ESCAPE && c != '\b' && c != NL && c != CR) {
 		putc(c, stdout);
 		if (debug & DEBUGESCAPE)
 			putc(c, logescape);
@@ -334,46 +402,54 @@ void programtoterminal(int master, unsigned char c,
 		return;
 	}
 
-	if (escape == -1 && c == ESCAPE) {
+	if (escape == -1 && c == ESCAPE)
 		escape = 0;
-		unknownposition = 1;
-	}
 
 	if (escape >= 0) {
 		putc(c, stdout);
 		if (escape >= SEQUENCELEN - 1) {
 			escape = -1;
+			unknownposition = 1;
 			return;
 		}
 		sequence[escape++] = c;
-		if (c == '[' && escape - 1 == 1)
-			return;
+		if (escape - 1 == 1) {
+			if (c == '[')
+				return;
+			else if (c == '8')
+				c = 'A';
+		}
 		if (c < 0x40 || c > 0x7F)
 			return;
+
 		sequence[escape] = '\0';
 		if (debug & DEBUGESCAPE)
 			fprintf(logescape, "<%s>", sequence);
+
 		if (! strcmp(sequence, ERASEDISPLAY))
-			for (i = 0; i < winsize->ws_row * winsize->ws_col; i++)
-				buffer[(origin + i) % BUFFERSIZE] = ' ';
+			erase(0, 0, winsize.ws_col);
+		if (! strcmp(sequence, ERASECURSORDISPLAY)) {
+			knowposition(master, 1);
+			erase(row, col, winsize.ws_col);
+		}
 		else if (! strcmp(sequence, ASKPOSITION)) {
-			askposition(0);
-			sprintf(buf, "\033[%d;%dR", row + 1, col + 1);
+			fflush(stdout);
+			knowposition(master, 0);
+			sprintf(buf, ANSWERPOSITION, row + 1, col + 1);
 			write(master, buf, strlen(buf));
 			if (debug & DEBUGESCAPE)
-				fprintf(logescape, "tin(%s)", buf);
-			unknownposition = 0;
+				fprintf(logescape, "fin(%s)", buf);
+			escape = -1;
+			return;
 		}
 		escape = -1;
+		unknownposition = 1;
 		return;
 	}
 
-					/* put character on vt */
+					/* send character to terminal */
 
-	if (unknownposition) {
-		askposition(1);
-		unknownposition = 0;
-	}
+	knowposition(master, 1);
 	putc(c, stdout);
 	if (debug & DEBUGESCAPE)
 		fprintf(logescape, "[pos:%d,%d]%c", row, col, c);
@@ -417,24 +493,23 @@ void programtoterminal(int master, unsigned char c,
 
 					/* update scrollback buffer */
 
-	pos = (origin + row * winsize->ws_col + col) % BUFFERSIZE;
+	pos = (origin + row * winsize.ws_col + col) % BUFFERSIZE;
 	if (c == '\b') {
 		if (col > 0)
 			col--;
 		buffer[pos] = ' ';
 	}
-	else if (c == '\n')
+	else if (c == NL)
 		newrow(winsize);
-	else if (c == FFEED)
+	else if (c == CR)
 		col = 0;
 	else {
-		buffer[pos] = w;
-		if (col < winsize->ws_col - 1)
-			col++;
-		else {
+		if (col >= winsize.ws_col) {
 			col = 0;
 			newrow(winsize);
 		}
+		buffer[pos] = w;
+		col++;
 	}
 	if (debug & DEBUGESCAPE)
 		fprintf(logescape, "[nextpos:%d,%d]", row, col);
@@ -446,12 +521,31 @@ void programtoterminal(int master, unsigned char c,
 }
 
 /*
+ * read the current position
+ */
+int readposition(char *sequence) {
+	char s, t;
+	int x, y;
+
+	if (4 == sscanf(sequence, GETPOSITION, &s, &y, &x, &t) &&
+	    s == GETPOSITIONSTARTER && t == GETPOSITIONTERMINATOR) {
+		row = y - 1;
+		col = x - 1;
+		unknownposition = 0;
+		if (debug & DEBUGESCAPE)
+			fprintf(logescape, "[gotposition:%d,%d]", row, col);
+		return 1;
+        }
+
+	return 0;
+}
+
+/*
  * process a character from the terminal
  */
 int special = -1;
 char specialsequence[SEQUENCELEN];
-void terminaltoprogram(int master, unsigned char c, int next,
-		const struct winsize *winsize) {
+void terminaltoprogram(int master, unsigned char c, int next) {
 	int len;
 	int pos, size, all;
 	int rows;
@@ -473,15 +567,15 @@ void terminaltoprogram(int master, unsigned char c, int next,
 		len = special;
 		special = -1;
 
-		size = lines * winsize->ws_col;
+		size = lines * winsize.ws_col;
 		if (! strcmp(specialsequence, scrollup)) {
 			pos = show - size;
 			if (pos < 0)
 				pos = 0;
-			all = winsize->ws_row * winsize->ws_col;
+			all = winsize.ws_row * winsize.ws_col;
 			if (origin - pos > BUFFERSIZE - all) {
-				rows = (BUFFERSIZE - all) / winsize->ws_col;
-				pos = origin - rows * winsize->ws_col;
+				rows = (BUFFERSIZE - all) / winsize.ws_col;
+				pos = origin - rows * winsize.ws_col;
 			}
 			if (show == origin && pos != show)
 				fprintf(stdout, SAVECURSOR);
@@ -496,6 +590,8 @@ void terminaltoprogram(int master, unsigned char c, int next,
 				pos = origin;
 			}
 		}
+		else if (readposition(specialsequence))
+			return;
 		else {
 			write(master, specialsequence, len);
 			return;
@@ -513,12 +609,62 @@ void terminaltoprogram(int master, unsigned char c, int next,
 }
 
 /*
- * parent
+ * exchange one block of data between terminal and shell
  */
-void parent(int master, pid_t pid, const struct winsize *winsize) {
+int exchange(int master, int readshell, struct timeval *timeout) {
 	fd_set sin;
 	char buf[1024];
 	int len, i;
+	int res;
+
+	if (debug & DEBUGESCAPE)
+		fprintf(logescape, "[exchange(%d)]", readshell);
+
+	FD_ZERO(&sin);
+	FD_SET(STDIN_FILENO, &sin);
+	if (readshell)
+		FD_SET(master, &sin);
+
+	res = select(master + 1, &sin, NULL, NULL, timeout);
+	if (res == -1) {
+		if (debug & DEBUGESCAPE)
+			fprintf(logescape, "[errno=%d]", errno);
+		return res;
+	}
+
+	if (res == 0)
+		if (debug & DEBUGESCAPE)
+			fprintf(logescape, "[timeout]");
+
+	if (FD_ISSET(STDIN_FILENO, &sin)) {
+		len = read(STDOUT_FILENO, &buf, 1024);
+		if (len == -1)
+			return -1;
+		if (debug & DEBUGESCAPE)
+			fprintf(logescape, "\nin[%d](", len);
+		for (i = 0; i < len; i++)
+			terminaltoprogram(master, buf[i], i < len - 1);
+		if (debug & DEBUGESCAPE)
+			fprintf(logescape, ")\n");
+	}
+
+	if (readshell && FD_ISSET(master, &sin)) {
+		len = read(master, &buf, 1024);
+		if (len == -1)
+			return -1;
+		for (i = 0; i < len; i++)
+			programtoterminal(master, buf[i]);
+		fflush(stdout);
+	}
+
+	return 0;
+}
+
+/*
+ * parent: main loop
+ */
+void parent(int master, pid_t pid) {
+	int i;
 	char logname[4096];
 
 	(void) pid;
@@ -552,35 +698,9 @@ void parent(int master, pid_t pid, const struct winsize *winsize) {
 		buffer[i] = ' ';
 	origin = 0;
 	show = 0;
+	unknownposition = 1;
 
-	FD_ZERO(&sin);
-	FD_SET(STDIN_FILENO, &sin);
-	FD_SET(master, &sin);
-
-	while (0 < select(master + 1, &sin, NULL, NULL, NULL)) {
-		if (FD_ISSET(STDIN_FILENO, &sin)) {
-			len = read(STDOUT_FILENO, &buf, 1024);
-			if (len == -1)
-				break;
-			if (debug & DEBUGESCAPE)
-				fprintf(logescape, "\nin[%d](", len);
-			for (i = 0; i < len; i++)
-				terminaltoprogram(master, buf[i], i < len - 1,
-					winsize);
-			if (debug & DEBUGESCAPE)
-				fprintf(logescape, ")\n");
-		}
-		if (FD_ISSET(master, &sin)) {
-			len = read(master, &buf, 1024);
-			if (len == -1)
-				break;
-			for (i = 0; i < len; i++)
-				programtoterminal(master, buf[i], winsize);
-			fflush(stdout);
-		}
-		FD_ZERO(&sin);
-		FD_SET(STDIN_FILENO, &sin);
-		FD_SET(master, &sin);
+	while (exchange(master, 1, NULL) == 0) {
 	}
 
 	if (debug & DEBUGESCAPE)
@@ -597,7 +717,6 @@ int main(int argn, char *argv[]) {
 	char no[20];
 	int master;
 	pid_t p;
-	struct winsize full;
 	int res;
 	int tty;
 	char t;
@@ -634,12 +753,12 @@ int main(int argn, char *argv[]) {
 
 					/* window size + check if console */
 
-	res = ioctl(1, TIOCGWINSZ, &full);
+	res = ioctl(1, TIOCGWINSZ, &winsize);
 	if (res == -1) {
 		printf("not a linux terminal, not running\n");
 		exit(EXIT_FAILURE);
 	}
-	lines = full.ws_row / 2;
+	lines = winsize.ws_row / 2;
 
 					/* scroll keys */
 
@@ -658,7 +777,7 @@ int main(int argn, char *argv[]) {
 
 					/* pty fork */
 
-	p = forkpty(&master, NULL, NULL, &full);
+	p = forkpty(&master, NULL, NULL, &winsize);
 	if (p == 0) {
 		tcgetattr(0, &st);
 		st.c_iflag &= ~(IGNBRK);
@@ -673,7 +792,7 @@ int main(int argn, char *argv[]) {
 		return EXIT_FAILURE;
 	}
 
-	parent(master, p, &full);
+	parent(master, p);
 	wait(NULL);
 	system("reset -I");
 	return EXIT_SUCCESS;
