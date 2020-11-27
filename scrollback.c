@@ -99,7 +99,7 @@ int singlechar = 0;
 int debug = DEBUGESCAPE;
 
 FILE *logescape;
-int logbuffer;
+FILE *logbuffer;
 
 #define LOGDIR    "/run/user/%d"
 #define LOGESCAPE (LOGDIR "/" "logescape")
@@ -529,8 +529,8 @@ void programtoterminal(int master, unsigned char c) {
 		fprintf(logescape, "[nextpos:%d,%d]", row, col);
 
 	if (debug & DEBUGBUFFER) {
-		lseek(logbuffer, 0, SEEK_SET);
-		write(logbuffer, buffer, sizeof(u_int32_t) * BUFFERSIZE);
+		fseek(logbuffer, 0, SEEK_SET);
+		fwrite(buffer, sizeof(u_int32_t), BUFFERSIZE, logbuffer);
 	}
 }
 
@@ -675,37 +675,37 @@ int exchange(int master, int readshell, struct timeval *timeout) {
 }
 
 /*
+ * open a log file
+ */
+FILE *logopen(char *filename) {
+	char logname[4096];
+	FILE *ret;
+
+	if (strstr(filename, "%d"))
+		snprintf(logname, 4096, filename, getuid());
+	else
+		strncpy(logname, filename, 4096);
+	ret = fopen(logname, "w");
+	if (ret == NULL) {
+		perror(logname);
+		exit(EXIT_FAILURE);
+	}
+
+	return ret;
+}
+
+/*
  * parent: main loop
  */
 void parent(int master, pid_t pid) {
 	int i;
-	char logname[4096];
 
 	(void) pid;
 
-	if (debug & DEBUGESCAPE) {
-		if (strstr(LOGESCAPE, "%d"))
-			snprintf(logname, 4096, LOGESCAPE, getuid());
-		else
-			strncpy(logname, LOGESCAPE, 4096);
-		logescape = fopen(logname, "w");
-		if (logescape == NULL) {
-			perror(logname);
-			exit(EXIT_FAILURE);
-		}
-	}
-	if (debug & DEBUGBUFFER) {
-		if (strstr(LOGBUFFER, "%d"))
-			snprintf(logname, 4096, LOGBUFFER, getuid());
-		else
-			strncpy(logname, LOGBUFFER, 4096);
-		logbuffer =
-			creat(logname, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
-		if (logbuffer == -1) {
-			perror(logname);
-			exit(EXIT_FAILURE);
-		}
-	}
+	if (debug & DEBUGESCAPE)
+		logescape = logopen(LOGESCAPE);
+	if (debug & DEBUGBUFFER)
+		logbuffer = logopen(LOGBUFFER);
 
 	nolinebuffering();
 	for (i = 0; i < BUFFERSIZE; i++)
@@ -720,7 +720,7 @@ void parent(int master, pid_t pid) {
 	if (debug & DEBUGESCAPE)
 		fclose(logescape);
 	if (debug & DEBUGBUFFER)
-		close(logbuffer);
+		fclose(logbuffer);
 }
 
 /*
