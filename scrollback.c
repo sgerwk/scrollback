@@ -3,7 +3,6 @@
  *
  * simple scrollback buffer for a virtual terminal
  *
- * tbd: print the keys to scroll up and down on startup
  * tbd: document how to use shift-pageup and shift-pagedown instead of f11/f12
  * tbd: option for the scroll control strings: scrollup, scrolldown
  * tbd: option for the scrollup/scrolldown keycodes: keycodeup, keycodedown
