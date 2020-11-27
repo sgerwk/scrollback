@@ -743,6 +743,9 @@ void parent(int master, pid_t pid) {
  * main
  */
 int main(int argn, char *argv[]) {
+	char *shell;
+	int checkonly, usage;
+	int opt;
 	char path[1024];
 	char no[20];
 	int master;
@@ -751,6 +754,32 @@ int main(int argn, char *argv[]) {
 	int tty;
 	char t;
 	struct termios st;
+
+					/* arguments */
+
+	checkonly = 0;
+	usage = 0;
+	while (-1 != (opt = getopt(argn, argv, "ch"))) {
+		switch (opt) {
+		case 'c':
+			checkonly = 1;
+			break;
+		case 'h':
+			usage = 1;
+			break;
+		default:
+			usage = 2;
+		}
+	}
+	if (! usage && argn - 1 < optind) {
+		printf("shell missing\n");
+		usage = 2;
+	}
+	if (usage) {
+		printf("usage: %s [-c] [-h] /path/to/shell\n", argv[0]);
+		exit(usage == 2 ? EXIT_FAILURE : EXIT_SUCCESS);
+	}
+	shell = argv[optind];
 
 					/* do not run in self */
 
@@ -798,12 +827,10 @@ int main(int argn, char *argv[]) {
 		exit(EXIT_FAILURE);
 	}
 
-					/* shell name */
+					/* check only */
 
-	if (argn - 1 < 1) {
-		printf("usage: %s /path/to/shell\n", argv[0]);
-		exit(EXIT_FAILURE);
-	}
+	if (checkonly)
+		return EXIT_SUCCESS;
 
 					/* pty fork */
 
@@ -813,8 +840,8 @@ int main(int argn, char *argv[]) {
 		st.c_iflag &= ~(IGNBRK);
 		st.c_iflag |= (BRKINT);
 		tcsetattr(0, TCSADRAIN, &st);
-		execvp(argv[1], argv + 1);
-		perror(argv[1]);
+		execvp(shell, argv + 1);
+		perror(shell);
 		return EXIT_FAILURE;
 	}
 	else if (p == -1) {
