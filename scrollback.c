@@ -96,6 +96,7 @@ int singlechar = 0;
  */
 #define DEBUGESCAPE 0x01
 #define DEBUGBUFFER 0x02
+#define DEBUGKEYS   0x04
 int debug = DEBUGESCAPE;
 
 FILE *logescape;
@@ -148,23 +149,28 @@ int keytofunction(int keycode, int shift, char **keystring) {
 		return -1;
 	switch (kbe.kb_value) {
 	case K_HOLE:
-		printf("K_HOLE\n");
+		if (debug & DEBUGKEYS)
+			printf("K_HOLE\n");
 		return 0;
 	case K_NOSUCHMAP:
-		printf("K_NOSUCHMAP\n");
+		if (debug & DEBUGKEYS)
+			printf("K_NOSUCHMAP\n");
 		return 0;
 	case K_ALLOCATED:
-		printf("K_ALLOCATED\n");
+		if (debug & DEBUGKEYS)
+			printf("K_ALLOCATED\n");
 		return 0;
 	default:
-		;
-		// printf("%d: ", kbe.kb_value);
-		// printf("%d ",  KTYP(kbe.kb_value));
-		// printf("%d\n", KVAL(kbe.kb_value));
+		if (! (debug & DEBUGKEYS))
+			break;
+		printf("key %d: ", kbe.kb_value);
+		printf("%d ",  KTYP(kbe.kb_value));
+		printf("%d\n", KVAL(kbe.kb_value));
 	}
 
 	if (KTYP(kbe.kb_value) != KT_FN) {
-		// printf("not a function key\n");
+		if (debug & DEBUGKEYS)
+			printf("not a function key\n");
 		return 0;
 	}
 
@@ -172,12 +178,14 @@ int keytofunction(int keycode, int shift, char **keystring) {
 	if (res != 0)
 		return -1;
 	res = ioctl(0, KDGKBSENT, &kbse);
-	for (i = 0; 0 && kbse.kb_string[i] != '\0'; i++)
-		if (kbse.kb_string[i] == ESCAPE)
-			printf("ESC");
-		else
-			printf("%c", kbse.kb_string[i]);
-	// printf("\n");
+	if (debug & DEBUGKEYS) {
+		for (i = 0; kbse.kb_string[i] != '\0'; i++)
+			if (kbse.kb_string[i] == ESCAPE)
+				printf("ESC");
+			else
+				printf("%c", kbse.kb_string[i]);
+		printf("\n");
+	}
 
 	*keystring = strdup((char *) kbse.kb_string);
 	return 1;
