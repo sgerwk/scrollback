@@ -32,13 +32,9 @@
  * they have to be processed as usual; at the same time, data is not to be read
  * from the shell while waiting for the answer; this is achieved by:
  *
- * int unknownposition
- *	whether the cursor position is known
- *
- * void knowposition(int master, int ask);
- *	ask the terminal for the current position and wait for an answer; the
- *	latter is done by calling exchange() to only receive data from the
- *	terminal with a timeout
+ * void parent(int master, pid_t pid);
+ *	the main loop; calls exchange() repeatedly to pass data between the
+ *	terminal and the shell in both directions with no timeout
  *
  * int exchange(int master, int readshell, struct timeval *timeout);
  *	process a single data block from the terminal or the shell; parameters
@@ -46,18 +42,30 @@
  *	to timeout reading; data from the terminal is forwarded to the shell
  *	except the cursor position answers
  *
- * void parent(int master, pid_t pid);
- *	the main loop; calls exchange() to pass data between the terminal and
- *	the shell in both directions with no timeout
+ * void knowposition(int master, int ask);
+ *	called whenever the cursor position is needed; ask the terminal and
+ *	wait for an answer; the latter is done by calling exchange() to only
+ *	receive data from the terminal with a timeout
  *
- * a ESC[6n command coming from the shell (not generated internally by this
- * program) is forwarded to the terminal as the others; knowposition() is then
+ * int unknownposition
+ *	whether the cursor position is known
+ *
+ * the cursor position is needed in two cases: first, the shell sent some
+ * escape sequences and now wants to print a character; second, the shell sent
+ * a ESC[6n to determine the cursor position
+ *
+ * in the first case, knownposition() is called with ask=1, which makes it ask
+ * the terminal via an ESC[6n command and wait for an answer while processing
+ * other data from the terminal as usual
+ *
+ * in the second case, the ESC[6n command coming from the shell is forwarded to
+ * the terminal as every other data coming from the shell; knowposition() is
  * called with ask=0 to skip asking the terminal for the cursor position but to
- * still process data coming from the terminal as usual until an answer is
- * received; at that point, an answer is built and sent to the shell
+ * still wait for an answer while still processing data coming from the
+ * terminal as usual; at that point, an answer is built and sent to the shell
  *
- * the timeout is avoids the terminal locking if for some reason the terminal
- * does not answer the cursor position query at all
+ * the timeout avoids freezing the shell if for some reason the terminal does
+ * not answer the cursor position query at all
  */
 
 #include <stdlib.h>
@@ -393,14 +401,14 @@ void newrow() {
 }
 
 /*
- * process a character from the program
+ * process a character from the shell
  */
 #define SEQUENCELEN 40
 char sequence[SEQUENCELEN];
 int escape = -1;
 unsigned char utf8[SEQUENCELEN];
 int utf8pos = 0, utf8len = 0;
-void programtoterminal(int master, unsigned char c) {
+void shelltoterminal(int master, unsigned char c) {
 	int pos;
 	u_int32_t w;
 	char buf[20];
@@ -567,7 +575,7 @@ int readposition(char *sequence) {
  */
 int special = -1;
 char specialsequence[SEQUENCELEN];
-void terminaltoprogram(int master, unsigned char c, int next) {
+void terminaltoshell(int master, unsigned char c, int next) {
 	int len;
 	int pos, size, all;
 	int rows;
@@ -665,7 +673,7 @@ int exchange(int master, int readshell, struct timeval *timeout) {
 		if (debug & DEBUGESCAPE)
 			fprintf(logescape, "\nin[%d](", len);
 		for (i = 0; i < len; i++)
-			terminaltoprogram(master, buf[i], i < len - 1);
+			terminaltoshell(master, buf[i], i < len - 1);
 		if (debug & DEBUGESCAPE)
 			fprintf(logescape, ")\n");
 	}
@@ -675,7 +683,7 @@ int exchange(int master, int readshell, struct timeval *timeout) {
 		if (len == -1)
 			return -1;
 		for (i = 0; i < len; i++)
-			programtoterminal(master, buf[i]);
+			shelltoterminal(master, buf[i]);
 		fflush(stdout);
 	}
 
@@ -790,7 +798,7 @@ int main(int argn, char *argv[]) {
 		exit(EXIT_FAILURE);
 	}
 
-					/* program name */
+					/* shell name */
 
 	if (argn - 1 < 1) {
 		printf("usage: %s /path/to/shell\n", argv[0]);
