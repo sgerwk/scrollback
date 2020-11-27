@@ -110,8 +110,10 @@ int logbuffer;
  * keys and escape sequences
  */
 #define ESCAPE                0x1B
+#define BS                    0x08
 #define NL                    0x0A
 #define CR                    0x0D
+#define DEL                   0x7F
 
 #define KEYF11                "\033[23~"
 #define KEYF12                "\033[24~"
@@ -508,10 +510,9 @@ void programtoterminal(int master, unsigned char c) {
 					/* update scrollback buffer */
 
 	pos = (origin + row * winsize.ws_col + col) % BUFFERSIZE;
-	if (c == '\b') {
-		if (col > 0)
-			col--;
-		buffer[pos] = ' ';
+	if ((c == BS || c == DEL) && col > 0) {
+		col--;
+		buffer[(BUFFERSIZE + pos - 1) % BUFFERSIZE] = ' ';
 	}
 	else if (c == NL)
 		newrow(winsize);
