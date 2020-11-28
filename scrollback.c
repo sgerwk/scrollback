@@ -833,6 +833,11 @@ int main(int argn, char *argv[]) {
 					/* pty fork */
 
 	p = forkpty(&master, NULL, NULL, &winsize);
+	if (p == -1) {
+		perror("forkpty");
+		return EXIT_FAILURE;
+	}
+
 	if (p == 0) {
 		tcgetattr(0, &st);
 		st.c_iflag &= ~(IGNBRK);
@@ -840,10 +845,6 @@ int main(int argn, char *argv[]) {
 		tcsetattr(0, TCSADRAIN, &st);
 		execvp(shell, argv + 1);
 		perror(shell);
-		return EXIT_FAILURE;
-	}
-	else if (p == -1) {
-		perror("forkpty");
 		return EXIT_FAILURE;
 	}
 
