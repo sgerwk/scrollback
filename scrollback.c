@@ -520,7 +520,8 @@ void shelltoterminal(int master, unsigned char c) {
 		else if (! strcmp(sequence, ASKPOSITION)) {
 			fflush(stdout);
 			knowposition(master, 0);
-			sprintf(buf, ANSWERPOSITION, row + 1, col + 1);
+			sprintf(buf, ANSWERPOSITION, row + 1,
+				col < winsize.ws_col ? col + 1 : col);
 			write(master, buf, strlen(buf));
 			if (debug & DEBUGESCAPE)
 				fprintf(logescape, "fin(%s)", buf);
