@@ -19,7 +19,8 @@ Once checked that it works this way, it can be run to replace the current
 shell:
 
 ```
-! $SCROLLBACK false && scrollback -c /bin/bash && exec scrollback /bin/bash
+! $SCROLLBACK false && [ $(tty) != /dev/tty6 ] && \
+scrollback -c /bin/bash && exec scrollback /bin/bash
 ```
 
 Keys
