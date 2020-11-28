@@ -12,7 +12,7 @@ scrollback buffer.
 It can be called from ``.bashrc`` as well:
 
 ```
-! $SCROLLBACK false && scrollback -c /bin/bash && exec scrollback /bin/bash
+! $SCROLLBACK false && scrollback /bin/bash
 ```
 
 Keys
