@@ -1,0 +1,115 @@
+.TH scrollback 1 "Nov 28, 2020"
+
+.
+.
+.SH NAME
+
+scrollback - a scrollback buffer for Linux virtual terminals
+
+.
+.
+.
+.SH SYNOPSIS
+
+.B scrollback
+[\fI-c\fP]
+[\fI-d level\fP]
+[\fI-h\fP]
+.I /path/to/shell
+
+.
+.
+.
+.SH DESCRIPTION
+
+When run in a Linux virtual terminal,
+.I
+scrollback
+runs a shell with a scrollback buffer. Text scrolled out of the screen is
+shown by either \fIF11\fP or \fIShift-PageUp\fP, depending on the key
+configuration, described below. Scrolling down is done by \fIF12\fP or
+\fIShift-PageDown\fP.
+
+.
+.
+.
+.SH OPTIONS
+
+.TP
+.B
+-c
+only check whether \fIscrollback\fP would run; it does from a
+Linux console different than \fItty6\fP and only if the environment variable
+\fISCROLLBACK\fP is not set. It does not run, for example, within itself.
+
+.TP
+.B
+-k
+configure
+.I
+Shift-PageUp
+and
+.I
+Shift-PageDown
+to be used by all subsequent runs
+
+.TP
+.BI -d " level
+the debug level, the inclusive or of:
+1, to log data exchanged between the shell and the actual terminal to a file
+\fIlogescape\fP;
+2, to continuosly save the status of the scrollback buffer to a file
+\fIlogfile\fP;
+4, to debug the key assignment procedure
+
+.TP
+.B
+-h
+this help
+
+.
+.
+.
+.SH KEY CONFIGURATION
+
+.I
+scrollback
+uses \fIShift-PageUp\fP and \fIShift-PageDown\fP for scrolling in the buffer if
+these keys are available. This is the case when they are associated to some
+strings by \fIloadkeys(1)\fP. An easy way to do that is to call
+.I
+scrollback -k
+at startup as root. The service file \fIscrollback.service\fP allows doing
+that from \fIsystemctl(1)\fP.
+
+.SH AUTOMATIC STARTUP
+
+Running \fIscrollback\fP from a shell initialization file such as \fI.bashrc\fP
+is possible but requires some care. Since \fIscrollback\fP calls the shell
+itself, its initialization file would be processed again, resulting in an
+infinite loop of calls to \fIscrollback\fP.
+
+This is avoided by using the following in \fI.bashrc\fP:
+
+.nf
+.I
+  ! $SCROLLBACK false && [ $(tty) != /dev/tty6 ] && \\
+.I
+  scrollback -c /bin/bash && exec scrollback /bin/bash
+.fi
+
+The evironment variable \fISCROLLBACK\fP is set by \fIscrollback\fP itself to
+true. The first part of the line ensures that the program will not call itself.
+
+Since the command \fIexec scrollback /bin/bash\fP makes \fIscrollback\fP
+replace the current shell (the one that is executing \fI.bashrc\fP), a failure
+would close it without running the other shell from within \fIscrollback\fP.
+
+The test \fI[ $(tty) != /dev/tty6]\fP is a
+fallback to make logging in always possible from the sixth virtual terminal
+(switched in by \fIControl-Shift-F6\fP).
+
+Calling \fIscrollback -c /bin/bash\fP is a test for whether \fIscrollback\fP
+would refuse to run, for example because it is not running on a Linux virtual
+terminal. It avoids the following \fIexec\fP in this case.
+
