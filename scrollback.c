@@ -847,8 +847,9 @@ int main(int argn, char *argv[]) {
 	}
 	if (usage) {
 		printf("usage:\n\t%s ", argv[0]);
-		printf("[-c] [-d level] [-h] /path/to/shell\n");
+		printf("[-c] [-k] [-d level] [-h] /path/to/shell\n");
 		printf("\t\t-c\t\tonly check whether it should run\n");
+		printf("\t\t-k\t\tset up the keys for the subsequent calls\n");
 		printf("\t\t-d level\tdebug level: 1=in/out 2=buffer\n");
 		printf("\t\t-h\t\tthis help\n");
 		exit(usage == 2 ? EXIT_FAILURE : EXIT_SUCCESS);
