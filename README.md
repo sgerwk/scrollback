@@ -19,10 +19,6 @@ Keys
 ----
 
 The keys for scrolling up and down are F11 and F12. The old combinations
-shift-pageup and shift-pagedown can be used instead by calling ``loadkeys`` on
-the included file ``keys.txt`` at least once, as root:
-
-``
-loadkeys keys.txt
-``
+shift-pageup and shift-pagedown can be used instead by calling ``scrollback
+-k`` at least once as root.
 

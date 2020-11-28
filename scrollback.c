@@ -3,14 +3,12 @@
  *
  * simple scrollback buffer for a virtual terminal
  *
- * tbd: document how to use shift-pageup and shift-pagedown instead of f11/f12
  * tbd: option for the scroll control strings: scrollup, scrolldown
  * tbd: option for the scrollup/scrolldown keycodes: keycodeup, keycodedown
  * tbd: colors
  * tbd: option for the scrollback buffer size
  * tbd: option for the number of lines to scroll (lines)
  * tbd: when scrolling, also use up/down for scrolling 1 line
- * tbd: option -k for doing the same as "loadkeys keys.txt"
  * tbd: option for single-char encodings (singlechar)
  * tbd: implement common cursor movements instead of asking the position
  */
@@ -73,6 +71,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <string.h>
+#include <ctype.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
@@ -84,6 +83,7 @@
 /*
  * keys for scrolling
  */
+int shift = K_SHIFTTAB;
 int keycodeup = 104;
 int keycodedown = 109;
 char *scrollup;
@@ -142,17 +142,80 @@ FILE *logbuffer;
 #define RESTORECURSOR         "\033[u"
 
 /*
+ * print an escape sequence in readable form
+ */
+void printescape(FILE *fd, unsigned char *sequence) {
+	int i;
+	for (i = 0; sequence[i] != '\0'; i++)
+		if (sequence[i] == ESCAPE)
+			fprintf(fd, "ESC");
+		else if (isprint(sequence[i]))
+			fprintf(fd, "%c", sequence[i]);
+		else
+			fprintf(fd, "[0x%02X]", sequence[i]);
+	fprintf(fd, "\n");
+}
+
+/*
+ * set escape sequence for a key
+ */
+int setkey(int keycode, int shift, int func, char *keystring) {
+	struct kbentry kbe;
+	struct kbsentry kbse;
+	int res;
+
+	kbse.kb_func = func;
+	strncpy((char *) kbse.kb_string, keystring, 511);
+	kbse.kb_string[511] = '\0';
+	res = ioctl(STDIN_FILENO, KDSKBSENT, &kbse);
+	if (res != 0) {
+		perror("KDSKBSENT");
+		return res;
+	}
+
+	kbe.kb_table = shift;
+	kbe.kb_index = keycode;
+	kbe.kb_value = func;
+	res = ioctl(STDIN_FILENO, KDSKBENT, &kbe);
+	if (res != 0) {
+		perror("KDSKBSENT");
+		return res;
+	}
+
+	fprintf(stdout, "%s%d", shift == K_SHIFTTAB ? "shift-" : "", keycode);
+	fprintf(stdout, " => ");
+	printescape(stdout, (unsigned char*) keystring);
+
+	return 0;
+}
+
+/*
+ * set scrolling keys
+ */
+int setscrollkeys() {
+	int res;
+
+	res = setkey(keycodeup, shift, K_F99, KEYSHIFTPAGEUP);
+	if (res != 0)
+		return res;
+	res = setkey(keycodedown, shift, K_F100, KEYSHIFTPAGEDOWN);
+	if (res != 0)
+		return res;
+
+	return 0;
+}
+
+/*
  * key to function string
  */
 int keytofunction(int keycode, int shift, char **keystring) {
 	struct kbentry kbe;
 	struct kbsentry kbse;
 	int res;
-	int i;
 
 	kbe.kb_table = shift;
 	kbe.kb_index = keycode;
-	res = ioctl(0, KDGKBENT, &kbe);
+	res = ioctl(STDIN_FILENO, KDGKBENT, &kbe);
 	if (res != 0)
 		return -1;
 	switch (kbe.kb_value) {
@@ -185,15 +248,9 @@ int keytofunction(int keycode, int shift, char **keystring) {
 	kbse.kb_func = KVAL(kbe.kb_value);
 	if (res != 0)
 		return -1;
-	res = ioctl(0, KDGKBSENT, &kbse);
-	if (debug & DEBUGKEYS) {
-		for (i = 0; kbse.kb_string[i] != '\0'; i++)
-			if (kbse.kb_string[i] == ESCAPE)
-				printf("ESC");
-			else
-				printf("%c", kbse.kb_string[i]);
-		printf("\n");
-	}
+	res = ioctl(STDIN_FILENO, KDGKBSENT, &kbse);
+	if (debug & DEBUGKEYS)
+		printescape(stdout, kbse.kb_string);
 
 	*keystring = strdup((char *) kbse.kb_string);
 	return 1;
@@ -208,14 +265,14 @@ int scrollkeys(int verbose) {
 	scrollup = KEYF11;
 	scrolldown = KEYF12;
 
-	res = keytofunction(keycodeup, K_SHIFTTAB, &scrollup);
+	res = keytofunction(keycodeup, shift, &scrollup);
 	if (res == -1)
 		return res;
 	if (verbose)
 		printf("scrollup is %s\n",
 			res == 0 ? "F11" : "shift-pageup");
 
-	res = keytofunction(keycodedown, K_SHIFTTAB, &scrolldown);
+	res = keytofunction(keycodedown, shift, &scrolldown);
 	if (res == -1)
 		return res;
 	if (verbose)
@@ -742,7 +799,7 @@ void parent(int master, pid_t pid) {
  */
 int main(int argn, char *argv[]) {
 	char *shell;
-	int checkonly, usage;
+	int checkonly, keysonly, usage;
 	int opt;
 	char path[1024];
 	char no[20];
@@ -758,10 +815,13 @@ int main(int argn, char *argv[]) {
 	checkonly = 0;
 	debug = 0;
 	usage = 0;
-	while (-1 != (opt = getopt(argn, argv, "cd:h"))) {
+	while (-1 != (opt = getopt(argn, argv, "ckd:h"))) {
 		switch (opt) {
 		case 'c':
 			checkonly = 1;
+			break;
+		case 'k':
+			keysonly = 1;
 			break;
 		case 'd':
 			debug = atoi(optarg);
@@ -773,7 +833,7 @@ int main(int argn, char *argv[]) {
 			usage = 2;
 		}
 	}
-	if (! usage && argn - 1 < optind) {
+	if (! usage && ! keysonly && argn - 1 < optind) {
 		printf("shell missing\n");
 		usage = 2;
 	}
@@ -783,6 +843,18 @@ int main(int argn, char *argv[]) {
 		exit(usage == 2 ? EXIT_FAILURE : EXIT_SUCCESS);
 	}
 	shell = argv[optind];
+
+					/* setup keys */
+
+	if (keysonly) {
+		res = setkey(keycodeup, shift, K_F99, KEYSHIFTPAGEUP);
+		if (res != 0)
+			exit(EXIT_FAILURE);
+		res = setkey(keycodedown, shift, K_F100, KEYSHIFTPAGEDOWN);
+		if (res != 0)
+			exit(EXIT_FAILURE);
+		exit(EXIT_SUCCESS);
+	}
 
 					/* do not run in self */
 
@@ -815,7 +887,7 @@ int main(int argn, char *argv[]) {
 
 					/* window size + check if console */
 
-	res = ioctl(1, TIOCGWINSZ, &winsize);
+	res = ioctl(STDOUT_FILENO, TIOCGWINSZ, &winsize);
 	if (res == -1) {
 		printf("not a linux terminal, not running\n");
 		exit(EXIT_FAILURE);
