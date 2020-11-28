@@ -202,27 +202,25 @@ int keytofunction(int keycode, int shift, char **keystring) {
 /*
  * control codes for the scrolling keys
  */
-int scrollkeys() {
+int scrollkeys(int verbose) {
 	int res;
 
 	scrollup = KEYF11;
 	scrolldown = KEYF12;
 
 	res = keytofunction(keycodeup, K_SHIFTTAB, &scrollup);
-	if (res == 0)
-		printf("scrollup is F11\n");
-	else if (res == -1)
+	if (res == -1)
 		return res;
-	else
-		printf("scrollup is shift-pageup\n");
+	if (verbose)
+		printf("scrollup is %s\n",
+			res == 0 ? "F11" : "shift-pageup");
 
 	res = keytofunction(keycodedown, K_SHIFTTAB, &scrolldown);
-	if (res == 0)
-		printf("scrolldown is F12\n");
-	else if (res == -1)
+	if (res == -1)
 		return res;
-	else
-		printf("scrolldown is shift-pagedown\n");
+	if (verbose)
+		printf("scrolldown is %s\n",
+			res == 0 ? "F12" : "shift-pagedown");
 
 	return res;
 }
@@ -821,7 +819,7 @@ int main(int argn, char *argv[]) {
 
 					/* scroll keys */
 
-	res = scrollkeys();
+	res = scrollkeys(! checkonly);
 	if (res == -1) {
 		printf("cannot determine scroll keys\n");
 		exit(EXIT_FAILURE);
