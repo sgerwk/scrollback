@@ -846,8 +846,11 @@ int main(int argn, char *argv[]) {
 		usage = 2;
 	}
 	if (usage) {
-		printf("usage: %s ", argv[0]);
-		printf("[-c] [-h] [-d level] /path/to/shell\n");
+		printf("usage:\n\t%s ", argv[0]);
+		printf("[-c] [-d level] [-h] /path/to/shell\n");
+		printf("\t\t-c\t\tonly check whether it should run\n");
+		printf("\t\t-d level\tdebug level: 1=in/out 2=buffer\n");
+		printf("\t\t-h\t\tthis help\n");
 		exit(usage == 2 ? EXIT_FAILURE : EXIT_SUCCESS);
 	}
 	shell = argv[optind];
