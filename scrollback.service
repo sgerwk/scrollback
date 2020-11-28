@@ -1,0 +1,10 @@
+[Unit]
+Description=Scrollback Keys
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/bin/scrollback -k
+
+[Install]
+WantedBy=default.target

@@ -160,14 +160,21 @@ void printescape(FILE *fd, unsigned char *sequence) {
  * set escape sequence for a key
  */
 int setkey(int keycode, int shift, int func, char *keystring) {
+	int tty;
 	struct kbentry kbe;
 	struct kbsentry kbse;
 	int res;
 
+	tty = open("/dev/tty1", O_RDWR);
+	if (tty == -1) {
+		perror("/dev/tty1");
+		return tty;
+	}
+
 	kbse.kb_func = func;
 	strncpy((char *) kbse.kb_string, keystring, 511);
 	kbse.kb_string[511] = '\0';
-	res = ioctl(STDIN_FILENO, KDSKBSENT, &kbse);
+	res = ioctl(tty, KDSKBSENT, &kbse);
 	if (res != 0) {
 		perror("KDSKBSENT");
 		return res;
@@ -176,9 +183,9 @@ int setkey(int keycode, int shift, int func, char *keystring) {
 	kbe.kb_table = shift;
 	kbe.kb_index = keycode;
 	kbe.kb_value = func;
-	res = ioctl(STDIN_FILENO, KDSKBENT, &kbe);
+	res = ioctl(tty, KDSKBENT, &kbe);
 	if (res != 0) {
-		perror("KDSKBSENT");
+		perror("KDSKBENT");
 		return res;
 	}
 

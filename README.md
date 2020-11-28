@@ -27,5 +27,6 @@ Keys
 
 The keys for scrolling are F11 and F12. The old combinations shift-pageup and
 shift-pagedown can be used instead by calling ``scrollback -k`` at least once
-as root.
+as root. This is done by systemctl with the included ``scrollback.service``
+file.
 
