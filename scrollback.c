@@ -105,7 +105,7 @@ int singlechar = 0;
 #define DEBUGESCAPE 0x01
 #define DEBUGBUFFER 0x02
 #define DEBUGKEYS   0x04
-int debug = DEBUGESCAPE;
+int debug;
 
 FILE *logescape;
 FILE *logbuffer;
@@ -756,11 +756,15 @@ int main(int argn, char *argv[]) {
 					/* arguments */
 
 	checkonly = 0;
+	debug = 0;
 	usage = 0;
-	while (-1 != (opt = getopt(argn, argv, "ch"))) {
+	while (-1 != (opt = getopt(argn, argv, "cd:h"))) {
 		switch (opt) {
 		case 'c':
 			checkonly = 1;
+			break;
+		case 'd':
+			debug = atoi(optarg);
 			break;
 		case 'h':
 			usage = 1;
@@ -774,7 +778,8 @@ int main(int argn, char *argv[]) {
 		usage = 2;
 	}
 	if (usage) {
-		printf("usage: %s [-c] [-h] /path/to/shell\n", argv[0]);
+		printf("usage: %s ", argv[0]);
+		printf("[-c] [-h] [-d level] /path/to/shell\n");
 		exit(usage == 2 ? EXIT_FAILURE : EXIT_SUCCESS);
 	}
 	shell = argv[optind];
@@ -843,7 +848,7 @@ int main(int argn, char *argv[]) {
 		st.c_iflag &= ~(IGNBRK);
 		st.c_iflag |= (BRKINT);
 		tcsetattr(0, TCSADRAIN, &st);
-		execvp(shell, argv + 1);
+		execvp(shell, argv + optind);
 		perror(shell);
 		return EXIT_FAILURE;
 	}
