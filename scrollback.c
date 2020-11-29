@@ -45,25 +45,30 @@
  *	wait for an answer; the latter is done by calling exchange() to only
  *	receive data from the terminal with a timeout
  *
- * int unknownposition
+ * int positionstatus
  *	whether the cursor position is known
  *
  * the cursor position is needed in two cases: first, the shell sent some
  * escape sequences and now wants to print a character; second, the shell sent
  * a ESC[6n to determine the cursor position
  *
- * in the first case, knownposition() is called with ask=1, which makes it ask
- * the terminal via an ESC[6n command and wait for an answer while processing
- * other data from the terminal as usual
+ * - in the first case, knownposition() is called with ask=1, which makes it
+ *   ask the terminal via an ESC[6n command and wait for an answer while
+ *   processing other data from the terminal as usual
  *
- * in the second case, the ESC[6n command coming from the shell is forwarded to
- * the terminal as every other data coming from the shell; knowposition() is
- * called with ask=0 to skip asking the terminal for the cursor position but to
- * still wait for an answer while still processing data coming from the
- * terminal as usual; at that point, an answer is built and sent to the shell
+ * - in the second case, the ESC[6n command coming from the shell is forwarded
+ *   to the terminal as every other data coming from the shell; knowposition()
+ *   is called with ask=0 so that it does not ask the terminal the position; it
+ *   still processes data coming from the terminal as usual until an answer is
+ *   received; at that point, an answer is built and sent to the shell
  *
  * the timeout avoids freezing the shell if for some reason the terminal does
  * not answer the cursor position query at all
+ *
+ * the cursor position status may be known, unknow or uncertain; the latter is
+ * when the terminal reported the cursor in the last column; it is ambigous
+ * because the next character is to be placed either at the end of the row or
+ * at the start of the next
  */
 
 #include <stdlib.h>
@@ -364,7 +369,10 @@ int show;		/* start of region that is shown when scrolling */
  */
 struct winsize winsize;	/* screen size */
 int row, col;		/* position of the cursor */
-int unknownposition;	/* is the cursor position known? */
+int positionstatus;	/* is the cursor position known? */
+#define POSITION_UNKNOWN   0
+#define POSITION_KNOWN     1
+#define POSITION_UNCERTAIN 2
 
 /*
  * show a segment of the scrollback buffer on screen
@@ -414,7 +422,7 @@ void knowposition(int master, int ask) {
 	struct timeval tv;
 	int i;
 
-	if (ask && ! unknownposition)
+	if (ask && positionstatus == POSITION_KNOWN)
 		return;
 
 	if (debug & DEBUGESCAPE)
@@ -425,15 +433,13 @@ void knowposition(int master, int ask) {
 		fflush(stdout);
 	}
 
-	for (i = 0; i < 4 && unknownposition; i++) {
+	positionstatus = POSITION_UNKNOWN;
+	for (i = 0; i < 4 && positionstatus == POSITION_UNKNOWN; i++) {
 		tv.tv_sec = 0;
 		tv.tv_usec = 100000;
 		exchange(master, 0, &tv);
 		// fixme: if return is -1, terminate everything
 	}
-
-	if (debug & DEBUGESCAPE)
-		fprintf(logescape, "[answer:%d,%d]", row, col);
 }
 
 /*
@@ -489,7 +495,7 @@ void shelltoterminal(int master, unsigned char c) {
 		if (debug & DEBUGESCAPE)
 			putc(c, logescape);
 		escape = -1;
-		unknownposition = 1;
+		positionstatus = POSITION_UNKNOWN;
 		utf8pos = 0;
 		return;
 	}
@@ -501,7 +507,7 @@ void shelltoterminal(int master, unsigned char c) {
 		putc(c, stdout);
 		if (escape >= SEQUENCELEN - 1) {
 			escape = -1;
-			unknownposition = 1;
+			positionstatus = POSITION_UNKNOWN;
 			return;
 		}
 		sequence[escape++] = c;
@@ -531,13 +537,13 @@ void shelltoterminal(int master, unsigned char c) {
 				col < winsize.ws_col ? col + 1 : col);
 			write(master, buf, strlen(buf));
 			if (debug & DEBUGESCAPE)
-				fprintf(logescape, "fin(%s)", buf);
+				fprintf(logescape, "fakein(%s)", buf);
 			escape = -1;
 			return;
 		}
 		escape = -1;
 		if (sequence[1] != '[' || c != 'm')
-			unknownposition = 1;
+			positionstatus = POSITION_UNKNOWN;
 		return;
 	}
 
@@ -624,7 +630,8 @@ int readposition(char *sequence) {
 	    s == GETPOSITIONSTARTER && t == GETPOSITIONTERMINATOR) {
 		row = y - 1;
 		col = x - 1;
-		unknownposition = 0;
+		positionstatus = x == winsize.ws_col ?
+			POSITION_UNCERTAIN : POSITION_KNOWN;
 		if (debug & DEBUGESCAPE)
 			fprintf(logescape, "[gotposition:%d,%d]", row, col);
 		return 1;
@@ -791,7 +798,7 @@ void parent(int master, pid_t pid) {
 		buffer[i] = ' ';
 	origin = 0;
 	show = 0;
-	unknownposition = 1;
+	positionstatus = POSITION_UNKNOWN;
 
 	while (exchange(master, 1, NULL) == 0) {
 	}
