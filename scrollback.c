@@ -40,7 +40,7 @@
  *	to timeout reading; data from the terminal is forwarded to the shell
  *	except the cursor position answers
  *
- * void knowposition(int master, int ask);
+ * void knowposition(int master, int alreadyasked);
  *	called whenever the cursor position is needed; ask the terminal and
  *	wait for an answer; the latter is done by calling exchange() to only
  *	receive data from the terminal with a timeout
@@ -52,15 +52,16 @@
  * escape sequences and now wants to print a character; second, the shell sent
  * a ESC[6n to determine the cursor position
  *
- * - in the first case, knownposition() is called with ask=1, which makes it
- *   ask the terminal via an ESC[6n command and wait for an answer while
- *   processing other data from the terminal as usual
+ * - in the first case, knownposition() is called with alreadyasked=0, which
+ *   makes it ask the terminal via an ESC[6n command and wait for an answer
+ *   while processing other data from the terminal as usual
  *
  * - in the second case, the ESC[6n command coming from the shell is forwarded
  *   to the terminal as every other data coming from the shell; knowposition()
- *   is called with ask=0 so that it does not ask the terminal the position; it
- *   still processes data coming from the terminal as usual until an answer is
- *   received; at that point, an answer is built and sent to the shell
+ *   is called with alreadyasked=1 so that it does not ask the terminal the
+ *   position; it still processes data coming from the terminal as usual until
+ *   an answer is received; at that point, an answer is built and sent to the
+ *   shell
  *
  * the timeout avoids freezing the shell if for some reason the terminal does
  * not answer the cursor position query at all
@@ -418,17 +419,17 @@ int exchange(int master, int readshell, struct timeval *timeout);
 /*
  * make the current position known
  */
-void knowposition(int master, int ask) {
+void knowposition(int master, int alreadyasked) {
 	struct timeval tv;
 	int i;
 
-	if (ask && positionstatus == POSITION_KNOWN)
+	if (! alreadyasked && positionstatus == POSITION_KNOWN)
 		return;
 
 	if (debug & DEBUGESCAPE)
-		fprintf(logescape, "[knowposition(%d)]", ask);
+		fprintf(logescape, "[knowposition(%d)]", alreadyasked);
 
-	if (ask) {
+	if (! alreadyasked) {
 		fprintf(stdout, ASKPOSITION);
 		fflush(stdout);
 	}
@@ -527,12 +528,12 @@ void shelltoterminal(int master, unsigned char c) {
 		if (! strcmp(sequence, ERASEDISPLAY))
 			erase(0, 0, winsize.ws_col);
 		if (! strcmp(sequence, ERASECURSORDISPLAY)) {
-			knowposition(master, 1);
+			knowposition(master, 0);
 			erase(row, col, winsize.ws_col);
 		}
 		else if (! strcmp(sequence, ASKPOSITION)) {
 			fflush(stdout);
-			knowposition(master, 0);
+			knowposition(master, 1);
 			sprintf(buf, ANSWERPOSITION, row + 1,
 				col < winsize.ws_col ? col + 1 : col);
 			write(master, buf, strlen(buf));
@@ -549,7 +550,7 @@ void shelltoterminal(int master, unsigned char c) {
 
 					/* send character to terminal */
 
-	knowposition(master, 1);
+	knowposition(master, 0);
 	putc(c, stdout);
 	if (debug & DEBUGESCAPE)
 		fprintf(logescape, "[pos:%d,%d]%c", row, col, c);
