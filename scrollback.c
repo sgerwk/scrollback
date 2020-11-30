@@ -9,7 +9,6 @@
  * tbd: option for the scrollback buffer size
  * tbd: option for the number of lines to scroll (lines)
  * tbd: when scrolling, also use up/down for scrolling 1 line
- * tbd: option for single-char encodings (singlechar)
  * tbd: implement common cursor movements instead of asking the position
  */
 
@@ -103,7 +102,7 @@ int lines;
 /*
  * single-char encodings
  */
-int singlechar = 0;
+int singlechar;
 
 /*
  * log files
@@ -837,11 +836,16 @@ int main(int argn, char *argv[]) {
 
 					/* arguments */
 
+	singlechar = 0;
 	checkonly = 0;
+	keysonly = 0;
 	debug = 0;
 	usage = 0;
-	while (-1 != (opt = getopt(argn, argv, "ckd:h"))) {
+	while (-1 != (opt = getopt(argn, argv, "sckd:h"))) {
 		switch (opt) {
+		case 's':
+			singlechar = 1;
+			break;
 		case 'c':
 			checkonly = 1;
 			break;
@@ -864,7 +868,8 @@ int main(int argn, char *argv[]) {
 	}
 	if (usage) {
 		printf("usage:\n\t%s ", argv[0]);
-		printf("[-c] [-k] [-d level] [-h] /path/to/shell\n");
+		printf("[-s] [-c] [-k] [-d level] [-h] /path/to/shell\n");
+		printf("\t\t-s\t\tterminal is not in unicode mode\n");
 		printf("\t\t-c\t\tonly check whether it should run\n");
 		printf("\t\t-k\t\tset up the keys for the subsequent calls\n");
 		printf("\t\t-d level\tdebug level: 1=in/out 2=buffer\n");
