@@ -139,6 +139,7 @@ FILE *logbuffer;
 #define GETPOSITION           "%c[%d;%d%c"
 #define GETPOSITIONSTARTER     ESCAPE
 #define GETPOSITIONTERMINATOR          'R'
+#define RESETATTRIBUTES       "\033[0m"
 #define BLUEBACKGROUND        "\033[44m"
 #define NORMALBACKGROUND      "\033[49m"
 #define ERASECURSORDISPLAY    "\033[J"
@@ -383,9 +384,10 @@ int positionstatus;	/* is the cursor position known? */
 void showscrollback() {
 	int size, all, rows, i;
 	char buf[10];
+	u_int32_t c, prev;
 
 	size = (winsize.ws_row - (show == origin ? 0 : 2)) * winsize.ws_col;
-	fprintf(stdout, HOMEPOSITION ERASEDISPLAY);
+	fprintf(stdout, HOMEPOSITION ERASEDISPLAY RESETATTRIBUTES);
 	if (show != origin) {
 		all = winsize.ws_row * winsize.ws_col;
 		rows = (BUFFERSIZE - all) / winsize.ws_col;
@@ -394,13 +396,19 @@ void showscrollback() {
 			fprintf(stdout, BARUP);
 		fprintf(stdout, "\r\n");
 	}
+	prev = 0;
 	for (i = 0; i < size; i++) {
-		if (singlechar)
-			putc(buffer[(show + i) % BUFFERSIZE] & 0xFF, stdout);
+		c = buffer[(show + i) % BUFFERSIZE];
+		if (singlechar) {
+			if (prev >= 0xC0 && c >= 0x80 && c < 0xC0)
+				putc(DEL, stdout);
+			putc(c, stdout);
+		}
 		else {
-			ucs4toutf8(buffer[(show + i) % BUFFERSIZE], buf);
+			ucs4toutf8(c, buf);
 			fputs(buf, stdout);
 		}
+		prev = c;
 	}
 	if (show != origin) {
 		fprintf(stdout, BARDOWN "       %d lines below",
