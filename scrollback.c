@@ -550,7 +550,8 @@ void shelltoterminal(int master, unsigned char c) {
 
 					/* send character to terminal */
 
-	knowposition(master, 0);
+	if (utf8len == 0)
+		knowposition(master, 0);
 	putc(c, stdout);
 	if (debug & DEBUGESCAPE)
 		fprintf(logescape, "[pos:%d,%d]%c", row, col, c);
