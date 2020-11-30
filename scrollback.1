@@ -12,6 +12,7 @@ scrollback - a scrollback buffer for Linux virtual terminals
 .SH SYNOPSIS
 
 .B scrollback
+[\fI-u\fP]
 [\fI-s\fP]
 [\fI-c\fP]
 [\fI-d level\fP]
@@ -38,8 +39,15 @@ configuration, described below. Scrolling down is done by \fIF12\fP or
 
 .TP
 .B
+-u
+run on a terminal that is in unicode mode;
+the default is autodetect from the current locale
+
+.TP
+.B
 -s
-run on a terminal that is not in unicode mode
+run on a terminal that is not in unicode mode;
+the default is autodetect from the current locale
 
 .TP
 .B
@@ -71,7 +79,7 @@ the debug level, the inclusive or of:
 .TP
 .B
 -h
-this help
+inline help
 
 .
 .

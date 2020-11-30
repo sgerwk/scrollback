@@ -81,6 +81,7 @@
 #include <sys/stat.h>
 #include <sys/wait.h>
 #include <errno.h>
+#include <locale.h>
 #include <pty.h>
 #include <linux/kd.h>
 #include <linux/keyboard.h>
@@ -836,13 +837,16 @@ int main(int argn, char *argv[]) {
 
 					/* arguments */
 
-	singlechar = 0;
+	singlechar = -1;
 	checkonly = 0;
 	keysonly = 0;
 	debug = 0;
 	usage = 0;
-	while (-1 != (opt = getopt(argn, argv, "sckd:h"))) {
+	while (-1 != (opt = getopt(argn, argv, "usckd:h"))) {
 		switch (opt) {
+		case 'u':
+			singlechar = 0;
+			break;
 		case 's':
 			singlechar = 1;
 			break;
@@ -868,7 +872,8 @@ int main(int argn, char *argv[]) {
 	}
 	if (usage) {
 		printf("usage:\n\t%s ", argv[0]);
-		printf("[-s] [-c] [-k] [-d level] [-h] /path/to/shell\n");
+		printf("[-u] [-s] [-c] [-k] [-d level] [-h] /path/to/shell\n");
+		printf("\t\t-u\t\tterminal is in unicode mode\n");
 		printf("\t\t-s\t\tterminal is not in unicode mode\n");
 		printf("\t\t-c\t\tonly check whether it should run\n");
 		printf("\t\t-k\t\tset up the keys for the subsequent calls\n");
@@ -877,6 +882,12 @@ int main(int argn, char *argv[]) {
 		exit(usage == 2 ? EXIT_FAILURE : EXIT_SUCCESS);
 	}
 	shell = argv[optind];
+
+					/* singlechar mode */
+
+	setlocale(LC_ALL, "");
+	if (singlechar == -1)
+		singlechar = MB_CUR_MAX == 1;
 
 					/* setup keys */
 
