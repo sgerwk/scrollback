@@ -6,7 +6,6 @@
  * tbd: option for the scroll control strings: scrollup, scrolldown
  * tbd: option for the scrollup/scrolldown keycodes: keycodeup, keycodedown
  * tbd: colors
- * tbd: option for the scrollback buffer size
  * tbd: option for the number of lines to scroll (lines)
  * tbd: when scrolling, also use up/down for scrolling 1 line
  * tbd: implement common cursor movements instead of asking the position
@@ -361,8 +360,8 @@ void ucs4toutf8(u_int32_t ucs4, char buf[10]) {
 /*
  * the scrollback buffer
  */
-#define BUFFERSIZE (8 * 1024)
-u_int32_t buffer[BUFFERSIZE];
+int buffersize;
+u_int32_t *buffer;
 int origin;		/* start of region storing a copy of the screen */
 int show;		/* start of region that is shown when scrolling */
 
@@ -390,7 +389,7 @@ void showscrollback() {
 	fprintf(stdout, HOMEPOSITION ERASEDISPLAY RESETATTRIBUTES);
 	if (show != origin) {
 		all = winsize.ws_row * winsize.ws_col;
-		rows = (BUFFERSIZE - all) / winsize.ws_col;
+		rows = (buffersize - all) / winsize.ws_col;
 		if (show - winsize.ws_col >= 0 &&
 		    rows > (origin - show) / winsize.ws_col)
 			fprintf(stdout, BARUP);
@@ -398,7 +397,7 @@ void showscrollback() {
 	}
 	prev = 0;
 	for (i = 0; i < size; i++) {
-		c = buffer[(show + i) % BUFFERSIZE];
+		c = buffer[(show + i) % buffersize];
 		if (singlechar) {
 			if (prev >= 0xC0 && c >= 0x80 && c < 0xC0)
 				putc(DEL, stdout);
@@ -458,10 +457,10 @@ void erase(int startrow, int startcol, int endcol) {
 	int start, i;
 	start = winsize.ws_col * startrow;
 	for (i = start + startcol; i < start + endcol; i++)
-		buffer[(origin + i) % BUFFERSIZE] = ' ';
+		buffer[(origin + i) % buffersize] = ' ';
 	start += winsize.ws_col;
 	for (i = start; i < winsize.ws_row * winsize.ws_col; i++)
-		buffer[(origin + i) % BUFFERSIZE] = ' ';
+		buffer[(origin + i) % buffersize] = ' ';
 }
 
 /*
@@ -603,10 +602,10 @@ void shelltoterminal(int master, unsigned char c) {
 
 					/* update scrollback buffer */
 
-	pos = (origin + row * winsize.ws_col + col) % BUFFERSIZE;
+	pos = (origin + row * winsize.ws_col + col) % buffersize;
 	if ((c == BS || c == DEL) && col > 0) {
 		col--;
-		buffer[(BUFFERSIZE + pos - 1) % BUFFERSIZE] = ' ';
+		buffer[(buffersize + pos - 1) % buffersize] = ' ';
 	}
 	else if (c == NL)
 		newrow(winsize);
@@ -625,7 +624,7 @@ void shelltoterminal(int master, unsigned char c) {
 
 	if (debug & DEBUGBUFFER) {
 		fseek(logbuffer, 0, SEEK_SET);
-		fwrite(buffer, sizeof(u_int32_t), BUFFERSIZE, logbuffer);
+		fwrite(buffer, sizeof(u_int32_t), buffersize, logbuffer);
 	}
 }
 
@@ -683,8 +682,8 @@ void terminaltoshell(int master, unsigned char c, int next) {
 			if (pos < 0)
 				pos = 0;
 			all = winsize.ws_row * winsize.ws_col;
-			if (origin - pos > BUFFERSIZE - all) {
-				rows = (BUFFERSIZE - all) / winsize.ws_col;
+			if (origin - pos > buffersize - all) {
+				rows = (buffersize - all) / winsize.ws_col;
 				pos = origin - rows * winsize.ws_col;
 			}
 			if (show == origin && pos != show)
@@ -804,7 +803,8 @@ void parent(int master, pid_t pid) {
 		logbuffer = logopen(LOGBUFFER);
 
 	nolinebuffering();
-	for (i = 0; i < BUFFERSIZE; i++)
+	buffer = malloc(sizeof(u_int32_t) * buffersize);
+	for (i = 0; i < buffersize; i++)
 		buffer[i] = ' ';
 	origin = 0;
 	show = 0;
@@ -812,6 +812,8 @@ void parent(int master, pid_t pid) {
 
 	while (exchange(master, 1, NULL) == 0) {
 	}
+
+	free(buffer);
 
 	if (debug & DEBUGESCAPE)
 		fclose(logescape);
@@ -837,13 +839,17 @@ int main(int argn, char *argv[]) {
 
 					/* arguments */
 
+	buffersize = 8 * 1024;
 	singlechar = -1;
 	checkonly = 0;
 	keysonly = 0;
 	debug = 0;
 	usage = 0;
-	while (-1 != (opt = getopt(argn, argv, "usckd:h"))) {
+	while (-1 != (opt = getopt(argn, argv, "b:usckd:h"))) {
 		switch (opt) {
+		case 'b':
+			buffersize = atoi(optarg);
+			break;
 		case 'u':
 			singlechar = 0;
 			break;
@@ -938,6 +944,12 @@ int main(int argn, char *argv[]) {
 		exit(EXIT_FAILURE);
 	}
 	lines = winsize.ws_row / 2;
+	if (buffersize < winsize.ws_row * winsize.ws_col) {
+		printf("buffer too small: %d, ", buffersize);
+		printf("should be greater than %d\n",
+			winsize.ws_row * winsize.ws_col);
+		exit(EXIT_FAILURE);
+	}
 
 					/* scroll keys */
 
