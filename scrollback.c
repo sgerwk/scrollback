@@ -835,7 +835,6 @@ int main(int argn, char *argv[]) {
 	int res;
 	int tty;
 	char t;
-	struct termios st;
 
 					/* arguments */
 
@@ -973,10 +972,6 @@ int main(int argn, char *argv[]) {
 	}
 
 	if (p == 0) {
-		tcgetattr(0, &st);
-		st.c_iflag &= ~(IGNBRK);
-		st.c_iflag |= (BRKINT);
-		tcsetattr(0, TCSADRAIN, &st);
 		execvp(shell, argv + optind);
 		perror(shell);
 		return EXIT_FAILURE;
