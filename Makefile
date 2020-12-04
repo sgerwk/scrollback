@@ -1,4 +1,4 @@
-PROGS=scrollback
+PROGS=scrollback vtwrapper
 
 CFLAGS=-Wall -Wextra
 LDLIBS=-lutil

@@ -16,6 +16,7 @@ scrollback - a scrollback buffer for Linux virtual terminals
 [\fI-b buffersize\fP]
 [\fI-u\fP]
 [\fI-s\fP]
+[\fI-v\fP]
 [\fI-c\fP]
 [\fI-d level\fP]
 [\fI-h\fP]
@@ -54,6 +55,12 @@ the default is autodetect from the current locale
 -s
 run on a terminal that is not in unicode mode;
 the default is autodetect from the current locale
+
+.TP
+.B
+-v
+make a file descriptor of the console available to the shell and the called
+programs through the \fIVT_FILENO\fP environment variable
 
 .TP
 .B

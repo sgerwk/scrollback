@@ -826,7 +826,7 @@ void parent(int master, pid_t pid) {
  */
 int main(int argn, char *argv[]) {
 	char *shell;
-	int checkonly, keysonly, usage;
+	int vtforward, checkonly, keysonly, usage;
 	int opt;
 	char path[1024];
 	char no[20];
@@ -835,16 +835,19 @@ int main(int argn, char *argv[]) {
 	int res;
 	int tty;
 	char t;
+	int vt;
+	char vtstring[20];
 
 					/* arguments */
 
 	buffersize = 8 * 1024;
 	singlechar = -1;
+	vtforward = 0;
 	checkonly = 0;
 	keysonly = 0;
 	debug = 0;
 	usage = 0;
-	while (-1 != (opt = getopt(argn, argv, "b:usckd:h"))) {
+	while (-1 != (opt = getopt(argn, argv, "b:usvckd:h"))) {
 		switch (opt) {
 		case 'b':
 			buffersize = atoi(optarg);
@@ -854,6 +857,9 @@ int main(int argn, char *argv[]) {
 			break;
 		case 's':
 			singlechar = 1;
+			break;
+		case 'v':
+			vtforward = 1;
 			break;
 		case 'c':
 			checkonly = 1;
@@ -877,9 +883,11 @@ int main(int argn, char *argv[]) {
 	}
 	if (usage) {
 		printf("usage:\n\t%s ", argv[0]);
-		printf("[-u] [-s] [-c] [-k] [-d level] [-h] /path/to/shell\n");
+		printf("[-b buffersize] [-u] [-s] [-v] [-c] [-k] [-d level]\n");
+		printf("\t\t\t[-h] /path/to/shell\n");
 		printf("\t\t-u\t\tterminal is in unicode mode\n");
 		printf("\t\t-s\t\tterminal is not in unicode mode\n");
+		printf("\t\t-v\t\tenable the VT_FILENO enviroment variable\n");
 		printf("\t\t-c\t\tonly check whether it should run\n");
 		printf("\t\t-k\t\tset up the keys for the subsequent calls\n");
 		printf("\t\t-d level\tdebug level: 1=in/out 2=buffer\n");
@@ -962,6 +970,18 @@ int main(int argn, char *argv[]) {
 
 	if (checkonly)
 		return EXIT_SUCCESS;
+
+					/* save tty file descriptor */
+
+	if (vtforward) {
+		vt = dup(STDIN_FILENO);
+		if (vt == -1) {
+			perror("VT_FILENO");
+			return -1;
+		}
+		sprintf(vtstring, "%d", vt);
+		setenv("VT_FILENO", vtstring, 1);
+	}
 
 					/* pty fork */
 
