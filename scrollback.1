@@ -42,19 +42,19 @@ configuration, described below. Scrolling down is done by \fIF12\fP or
 
 .TP
 .BI -b " buffersize
-set the size of the buffer, the number of character it contains
+set the size of the buffer, the number of characters it contains
 
 .TP
 .B
 -u
 run on a terminal that is in unicode mode;
-the default is autodetect from the current locale
+the default is to autodetect from the current locale
 
 .TP
 .B
 -s
 run on a terminal that is not in unicode mode;
-the default is autodetect from the current locale
+the default is to autodetect from the current locale
 
 .TP
 .B
@@ -68,7 +68,7 @@ called programs through the \fIVT_FILENO\fP environment variable; see
 -c
 only check whether \fIscrollback\fP would run; it does from a
 Linux console different than \fItty6\fP and only if the environment variable
-\fISCROLLBACK\fP is not set. It does not run, for example, within itself.
+\fISCROLLBACK\fP is not set; it does not run, for example, within itself
 
 .TP
 .B
@@ -136,9 +136,9 @@ Since the command \fIexec scrollback /bin/bash\fP makes \fIscrollback\fP
 replace the current shell (the one that is executing \fI.bashrc\fP), a failure
 would close it without running the other shell from within \fIscrollback\fP.
 
-The test \fI[ $(tty) != /dev/tty6]\fP is a
+The test \fI[ $(tty) != /dev/tty6 ]\fP is a
 fallback to make logging in always possible from the sixth virtual terminal
-(switched in by \fIControl-Shift-F6\fP).
+(switched in by \fIControl-Alt-F6\fP).
 
 Calling \fIscrollback -c /bin/bash\fP is a test for whether \fIscrollback\fP
 would refuse to run, for example because it is not running on a Linux virtual
@@ -158,7 +158,7 @@ pseudoterminal (read and write) this sufficies because \fIscrollback\fP
 forwards it between \fI/dev/pts/0\fP and the actual virtual terminal, for
 example \fI/dev/tty1\fP.
 
-However, the calls to \fIioctl(2)\fP on the pseudoterminal cannot be forwarded.
+However, the \fIioctl(2)\fP calls on the pseudoterminal cannot be forwarded.
 The functions described in \fIioctl_console(2)\fP for \fI/dev/tty1\fP do not
 work on \fI/dev/pts/0\fP. Opening \fI/dev/tty1\fP do not work either because
 access to it is denied by the operating system.
