@@ -871,7 +871,7 @@ int main(int argn, char *argv[]) {
 
 	buffersize = 8 * 1024;
 	singlechar = -1;
-	vtforward = 0;
+	vtforward = 1;
 	checkonly = 0;
 	keysonly = 0;
 	debug = 0;
@@ -888,7 +888,7 @@ int main(int argn, char *argv[]) {
 			singlechar = 1;
 			break;
 		case 'v':
-			vtforward = 1;
+			vtforward = 0;
 			break;
 		case 'c':
 			checkonly = 1;
@@ -916,7 +916,7 @@ int main(int argn, char *argv[]) {
 		printf("\t\t\t[-h] /path/to/shell\n");
 		printf("\t\t-u\t\tterminal is in unicode mode\n");
 		printf("\t\t-s\t\tterminal is not in unicode mode\n");
-		printf("\t\t-v\t\tenable the VT_FILENO enviroment variable\n");
+		printf("\t\t-v\t\tdisable the VT_FILENO enviroment variable\n");
 		printf("\t\t-c\t\tonly check whether it should run\n");
 		printf("\t\t-k\t\tset up the keys for the subsequent calls\n");
 		printf("\t\t-d level\tdebug level: 1=in/out 2=buffer\n");
