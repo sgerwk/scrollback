@@ -700,7 +700,7 @@ void terminaltoshell(int master, unsigned char c, int next) {
 		specialsequence[special++] = c;
 		if (c == '[' && special - 1 == 1)
 			return;
-		if (c < 0x40 || c > 0x7F)
+		if ((c < 0x40 && c != '.') || c > 0x7F)
 			return;
 
 		specialsequence[special] = '\0';
