@@ -60,7 +60,8 @@ the default is autodetect from the current locale
 .B
 -v
 do not make a file descriptor of the console available to the shell and the
-called programs through the \fIVT_FILENO\fP environment variable
+called programs through the \fIVT_FILENO\fP environment variable; see
+\fIDIRECT ACCESS TO THE VIRTUAL TERMINAL\fP, below
 
 .TP
 .B
@@ -142,4 +143,77 @@ fallback to make logging in always possible from the sixth virtual terminal
 Calling \fIscrollback -c /bin/bash\fP is a test for whether \fIscrollback\fP
 would refuse to run, for example because it is not running on a Linux virtual
 terminal. It avoids the following \fIexec\fP in this case.
+
+.
+.
+.
+.SH DIRECT ACCESS TO THE VIRTUAL TERMINAL
+
+\fIscrollback\fP creates a pseudoterminal and runs the shell in it, forwarding
+data back and forth between the pseudoterminal and the actual virtual terminal.
+
+The shell and all programs executed from it run in the pseudoterminal, for
+example \fI/dev/pts/0\fP. As long as they only exchange text with the
+pseudoterminal (read and write) this sufficies because \fIscrollback\fP
+forwards it between \fI/dev/pts/0\fP and the actual virtual terminal, for
+example \fI/dev/tty1\fP.
+
+However, the calls to \fIioctl(2)\fP on the pseudoterminal cannot be forwarded.
+The functions described in \fIioctl_console(2)\fP for \fI/dev/tty1\fP do not
+work on \fI/dev/pts/0\fP. Opening \fI/dev/tty1\fP do not work either because
+access to it is denied by the operating system.
+
+A program can still access the actual virtual terminal in three ways:
+
+.IP "  * " 4
+the program calls \fIioctl(2)\fP on the open file descriptor whose number is
+stored in the environment variable \fIVT_FILENO\fP, available unless
+\fIscrollback\fP is called with option \fI-v\fP:
+
+.nf
+\fI
+	char *vtstring;
+	int vtno;
+	char leds;
+
+	...
+	vtstring = getenv("VT_FILENO");
+	if (vtstring)
+		vtno = atoi(vtstring);
+	else {
+		vtno = STDIN_FILENO;
+		// or
+		vtno = open("/dev/tty", O_RDWR);
+	}
+	...
+	ioctl(vtno, KDGETLED, &leds);
+\fP
+.fi
+
+.IP "  * "
+the program is run through the \fIvtwrapper\fP script:
+
+.nf
+.I
+	vtwrapper program arg1 arg2...
+.fi
+
+this works if the program calls \fIioctl(2)\fP on a standard file descriptor,
+either \fI0\fP, \fI1\fP or \fI2\fP, since what \fIvtwrapper\fP does is to make
+them a copy of \fIVT_FILENO\fP
+
+.IP "  * "
+the program is called via \fIvtdirect\fP:
+
+.nf
+.I
+	vtdirect "program arg1 arg2..."
+.fi
+
+this runs program directly on the virtual terminal; this is necessary to run
+\fIstartx(1)\fP, for example
+
+.P
+In the latter two cases, text produced by the program does not go in the
+scrollback buffer and cannot therefore be later retrieved by scrolling up.
 
