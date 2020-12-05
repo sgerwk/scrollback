@@ -146,6 +146,7 @@ FILE *logbuffer;
 #define HOMEPOSITION          "\033[H"
 #define SAVECURSOR            "\033[s"
 #define RESTORECURSOR         "\033[u"
+#define BREAKOUT              "\033[0v"
 
 /*
  * print an escape sequence in readable form
@@ -358,6 +359,34 @@ void ucs4toutf8(u_int32_t ucs4, char buf[10]) {
 }
 
 /*
+ * the virtual terminal
+ */
+int vtno;		/* number of the virtual terminal */
+int vtfd;		/* terminal file descriptor */
+
+/*
+ * run a program directly on the virtual terminal
+ */
+void vtrun() {
+	struct termios orig, temp;
+	char buf[40];
+
+	sprintf(buf, "sh %s/.scrollback.%d", getenv("HOME"), vtno);
+	tcgetattr(0, &orig);
+	temp = orig;
+	temp.c_iflag |= (ICRNL);
+	temp.c_oflag |= (OPOST);
+	tcsetattr(0, TCSADRAIN, &temp);
+	/* tbd: close vtfd in the child if not -1 */
+	system(buf);
+	tcsetattr(0, TCSADRAIN, &orig);
+
+	sprintf(buf, "%s/.scrollback.%d", getenv("HOME"), vtno);
+	if (-1 == unlink(buf))
+		perror(buf);
+}
+
+/*
  * the scrollback buffer
  */
 int buffersize;
@@ -487,7 +516,7 @@ int utf8pos = 0, utf8len = 0;
 void shelltoterminal(int master, unsigned char c) {
 	int pos;
 	u_int32_t w;
-	char buf[20];
+	char buf[40];
 
 				/* input character: end scrolling mode */
 
@@ -549,6 +578,8 @@ void shelltoterminal(int master, unsigned char c) {
 			escape = -1;
 			return;
 		}
+		else if (! strcmp(sequence, BREAKOUT))
+			vtrun();
 		escape = -1;
 		if (sequence[1] != '[' || c != 'm')
 			positionstatus = POSITION_UNKNOWN;
@@ -833,9 +864,7 @@ int main(int argn, char *argv[]) {
 	int master;
 	pid_t p;
 	int res;
-	int tty;
 	char t;
-	int vt;
 	char vtstring[20];
 
 					/* arguments */
@@ -930,16 +959,16 @@ int main(int argn, char *argv[]) {
 		exit(EXIT_FAILURE);
 	}
 	path[res] = '\0';
-	if (sscanf(path, "/dev/tty%d%c", &tty, &t) != 1) {
+	if (sscanf(path, "/dev/tty%d%c", &vtno, &t) != 1) {
 		printf("not running on /dev/ttyX\n");
 		exit(EXIT_FAILURE);
 	}
-	if (tty == 6) {
+	if (vtno == 6) {
 		printf("not running on tty6\n");
 		exit(EXIT_FAILURE);
 	}
 
-	sprintf(no, "%d", tty);
+	sprintf(no, "%d", vtno);
 	setenv("SCROLLBACKTTY", path, 1);
 	setenv("SCROLLBACKNO", no, 1);
 
@@ -973,13 +1002,15 @@ int main(int argn, char *argv[]) {
 
 					/* save tty file descriptor */
 
-	if (vtforward) {
-		vt = dup(STDIN_FILENO);
-		if (vt == -1) {
+	if (! vtforward)
+		vtfd = -1;
+	else {
+		vtfd = dup(STDIN_FILENO);
+		if (vtfd == -1) {
 			perror("VT_FILENO");
 			return -1;
 		}
-		sprintf(vtstring, "%d", vt);
+		sprintf(vtstring, "%d", vtfd);
 		setenv("VT_FILENO", vtstring, 1);
 	}
 

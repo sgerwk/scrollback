@@ -1,0 +1,9 @@
+#!/bin/sh
+#
+# run a program directly on the virtual terminal
+
+[ $# -lt 1 ] && echo "program to run missing" && exit 1
+
+echo "$1" > $HOME/.scrollback.$SCROLLBACKNO
+echo -en '\033[0v'
+
