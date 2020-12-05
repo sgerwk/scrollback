@@ -31,3 +31,10 @@ shift-pagedown can be used instead by calling ``scrollback -k`` at least once
 as root. This is done by systemctl with the included ``scrollback.service``
 file.
 
+Running startx and similar
+--------------------------
+
+If a program refuses to run whining about ``VT_GETMODE``, ``KDSETMODE`` or
+something like that, try passing it to either ``vtdirect`` or ``vtwrapper``.
+For example, instead of ``startx`` call ``vtdirect startx``.
+
