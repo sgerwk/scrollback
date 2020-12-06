@@ -10,6 +10,12 @@ then
 	exit 1
 fi
 
-echo "$1" > $HOME/.scrollback.$SCROLLBACKNO
+SCRIPT=$HOME/.scrollback.$SCROLLBACKNO
+
+cat /dev/null			>  $SCRIPT
+env | sed 's,^,export ,'	>> $SCRIPT
+echo "cd $(pwd)"		>> $SCRIPT
+echo "$1"			>> $SCRIPT
+
 echo -en '\033[0v'
 
