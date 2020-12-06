@@ -539,7 +539,8 @@ void shelltoterminal(int master, unsigned char c) {
 		if (debug & DEBUGESCAPE)
 			putc(c, logescape);
 		escape = -1;
-		positionstatus = POSITION_UNKNOWN;
+		if (c != 0x0E && c != 0x0F)
+			positionstatus = POSITION_UNKNOWN;
 		utf8pos = 0;
 		return;
 	}
@@ -590,7 +591,7 @@ void shelltoterminal(int master, unsigned char c) {
 			deletescript(1);
 		}
 		escape = -1;
-		if (sequence[1] != '[' || c != 'm')
+		if (sequence[1] != '[' || (c != 'K' && c != 'm'))
 			positionstatus = POSITION_UNKNOWN;
 		return;
 	}
