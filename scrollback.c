@@ -380,11 +380,18 @@ void vtrun() {
 	/* tbd: close vtfd in the child if not -1 */
 	system(buf);
 	tcsetattr(0, TCSADRAIN, &orig);
+}
 
+/*
+ * delete the script containing the program to run
+ */
+void deletescript(int warn) {
+	char buf[40];
 	sprintf(buf, "%s/.scrollback.%d", getenv("HOME"), vtno);
-	if (-1 == unlink(buf))
+	if (-1 == unlink(buf) && warn)
 		perror(buf);
 }
+
 
 /*
  * the scrollback buffer
@@ -578,8 +585,10 @@ void shelltoterminal(int master, unsigned char c) {
 			escape = -1;
 			return;
 		}
-		else if (! strcmp(sequence, BREAKOUT))
+		else if (! strcmp(sequence, BREAKOUT)) {
 			vtrun();
+			deletescript(1);
+		}
 		escape = -1;
 		if (sequence[1] != '[' || c != 'm')
 			positionstatus = POSITION_UNKNOWN;
@@ -840,6 +849,7 @@ void parent(int master, pid_t pid) {
 	origin = 0;
 	show = 0;
 	positionstatus = POSITION_UNKNOWN;
+	deletescript(0);
 
 	while (exchange(master, 1, NULL) == 0) {
 	}
