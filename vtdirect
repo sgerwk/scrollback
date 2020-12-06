@@ -15,7 +15,7 @@ SCRIPT=$HOME/.scrollback.$SCROLLBACKNO
 cat /dev/null			>  $SCRIPT
 env | sed 's,^,export ,'	>> $SCRIPT
 echo "cd $(pwd)"		>> $SCRIPT
-echo "$1"			>> $SCRIPT
+echo "${@}"			>> $SCRIPT
 
 echo -en '\033[0v'
 
