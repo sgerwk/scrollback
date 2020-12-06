@@ -4,6 +4,12 @@
 
 [ $# -lt 1 ] && echo "program to run missing" && exit 1
 
+if ! $SCROLLBACK false;
+then
+	exec "${@}"
+	exit 1
+fi
+
 echo "$1" > $HOME/.scrollback.$SCROLLBACKNO
 echo -en '\033[0v'
 
