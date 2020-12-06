@@ -135,9 +135,10 @@ FILE *logbuffer;
 
 #define ASKPOSITION           "\033[6n"
 #define ANSWERPOSITION        "\033[%d;%dR"
-#define GETPOSITION           "%c[%d;%d%c"
-#define GETPOSITIONSTARTER     ESCAPE
+#define SEQUENCE2ARGS         "%c[%d;%d%c"
+#define SEQUENCESTARTER        ESCAPE
 #define GETPOSITIONTERMINATOR          'R'
+#define MOVECURSORTERMINATOR           'H'
 #define RESETATTRIBUTES       "\033[0m"
 #define BLUEBACKGROUND        "\033[44m"
 #define NORMALBACKGROUND      "\033[49m"
@@ -392,7 +393,6 @@ void deletescript(int warn) {
 		perror(buf);
 }
 
-
 /*
  * the scrollback buffer
  */
@@ -487,6 +487,30 @@ void knowposition(int master, int alreadyasked) {
 }
 
 /*
+ * obtain the current position from an escape sequence
+ */
+int readposition(char *sequence, char terminator) {
+	char s, t;
+	int x, y;
+
+	if (4 != sscanf(sequence, SEQUENCE2ARGS, &s, &y, &x, &t))
+		return 0;
+	if (s != SEQUENCESTARTER || t != terminator)
+		return 0;
+
+	if (y < 1 || y > winsize.ws_row || x < 1 || x > winsize.ws_col)
+		return 0;
+	row = y - 1;
+	col = x - 1;
+	positionstatus =
+		x == winsize.ws_col && terminator == GETPOSITIONTERMINATOR ?
+			POSITION_UNCERTAIN : POSITION_KNOWN;
+	if (debug & DEBUGESCAPE)
+		fprintf(logescape, "[gotposition:%d,%d]", row, col);
+	return 1;
+}
+
+/*
  * erase part of the scrollback buffer
  */
 void erase(int startrow, int startcol, int endcol) {
@@ -571,7 +595,7 @@ void shelltoterminal(int master, unsigned char c) {
 
 		if (! strcmp(sequence, ERASEDISPLAY))
 			erase(0, 0, winsize.ws_col);
-		if (! strcmp(sequence, ERASECURSORDISPLAY)) {
+		else if (! strcmp(sequence, ERASECURSORDISPLAY)) {
 			knowposition(master, 0);
 			erase(row, col, winsize.ws_col);
 		}
@@ -589,6 +613,10 @@ void shelltoterminal(int master, unsigned char c) {
 		else if (! strcmp(sequence, BREAKOUT)) {
 			vtrun();
 			deletescript(1);
+		}
+		else if (readposition(sequence, MOVECURSORTERMINATOR)) {
+			escape = -1;
+			return;
 		}
 		escape = -1;
 		if (sequence[1] != '[' || (c != 'K' && c != 'm'))
@@ -670,27 +698,6 @@ void shelltoterminal(int master, unsigned char c) {
 }
 
 /*
- * read the current position
- */
-int readposition(char *sequence) {
-	char s, t;
-	int x, y;
-
-	if (4 == sscanf(sequence, GETPOSITION, &s, &y, &x, &t) &&
-	    s == GETPOSITIONSTARTER && t == GETPOSITIONTERMINATOR) {
-		row = y - 1;
-		col = x - 1;
-		positionstatus = x == winsize.ws_col ?
-			POSITION_UNCERTAIN : POSITION_KNOWN;
-		if (debug & DEBUGESCAPE)
-			fprintf(logescape, "[gotposition:%d,%d]", row, col);
-		return 1;
-        }
-
-	return 0;
-}
-
-/*
  * process a character from the terminal
  */
 int special = -1;
@@ -740,7 +747,7 @@ void terminaltoshell(int master, unsigned char c, int next) {
 				pos = origin;
 			}
 		}
-		else if (readposition(specialsequence))
+		else if (readposition(specialsequence, GETPOSITIONTERMINATOR))
 			return;
 		else {
 			write(master, specialsequence, len);
