@@ -586,7 +586,7 @@ void shelltoterminal(int master, unsigned char c) {
 			else if (c == '8')
 				c = 'A';
 		}
-		if (c < 0x40 || c > 0x7F)
+		if (c < 0x30 || (c < 0x40 && (sequence[1] == '[')) || c > 0x7F)
 			return;
 
 		sequence[escape] = '\0';
