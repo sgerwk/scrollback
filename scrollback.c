@@ -1032,7 +1032,7 @@ int main(int argn, char *argv[]) {
 		vtfd = dup(STDIN_FILENO);
 		if (vtfd == -1) {
 			perror("VT_FILENO");
-			return -1;
+			return EXIT_FAILURE;
 		}
 		sprintf(vtstring, "%d", vtfd);
 		setenv("VT_FILENO", vtstring, 1);
