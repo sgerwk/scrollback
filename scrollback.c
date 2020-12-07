@@ -82,6 +82,7 @@
 #include <errno.h>
 #include <locale.h>
 #include <pty.h>
+#include <utmp.h>
 #include <linux/kd.h>
 #include <linux/keyboard.h>
 
@@ -794,9 +795,14 @@ int exchange(int master, int readshell, struct timeval *timeout) {
 			fprintf(logescape, "[timeout]");
 
 	if (FD_ISSET(STDIN_FILENO, &sin)) {
-		len = read(STDOUT_FILENO, &buf, 1024);
-		if (len == -1)
+		len = read(STDIN_FILENO, &buf, 1024);
+		if (len == -1) {
+			if (debug & DEBUGESCAPE) {
+				fprintf(logescape, "\n[read:%d=", errno);
+				fprintf(logescape, "%s]\n", strerror(errno));
+			}
 			return -1;
+		}
 		if (debug & DEBUGESCAPE)
 			fprintf(logescape, "\nin[%d](", len);
 		for (i = 0; i < len; i++)
