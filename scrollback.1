@@ -59,9 +59,8 @@ the default is to autodetect from the current locale
 .TP
 .B
 -v
-do not make a file descriptor of the console available to the shell and the
-called programs through the \fIVT_FILENO\fP environment variable; see
-\fIDIRECT ACCESS TO THE VIRTUAL TERMINAL\fP, below
+make a file descriptor of the console available to the shell and the called
+programs through the \fIVT_FILENO\fP environment variable
 
 .TP
 .B
@@ -163,47 +162,8 @@ The functions described in \fIioctl_console(2)\fP for \fI/dev/tty1\fP do not
 work on \fI/dev/pts/0\fP. Opening \fI/dev/tty1\fP do not work either because
 access to it is denied by the operating system.
 
-A program can still access the actual virtual terminal in three ways:
-
-.IP "  * " 4
-the program calls \fIioctl(2)\fP on the open file descriptor whose number is
-stored in the environment variable \fIVT_FILENO\fP, available unless
-\fIscrollback\fP is called with option \fI-v\fP:
-
-.nf
-\fI
-	char *vtstring;
-	int vtno;
-	char leds;
-
-	...
-	vtstring = getenv("VT_FILENO");
-	if (vtstring)
-		vtno = atoi(vtstring);
-	else {
-		vtno = STDIN_FILENO;
-		// or
-		vtno = open("/dev/tty", O_RDWR);
-	}
-	...
-	ioctl(vtno, KDGETLED, &leds);
-\fP
-.fi
-
-.IP "  * "
-the program is run through the \fIvtwrapper\fP script:
-
-.nf
-.I
-	vtwrapper program arg1 arg2...
-.fi
-
-this works if the program calls \fIioctl(2)\fP on a standard file descriptor,
-either \fI0\fP, \fI1\fP or \fI2\fP, since what \fIvtwrapper\fP does is to make
-them a copy of \fIVT_FILENO\fP
-
-.IP "  * "
-the program is called via \fIvtdirect\fP:
+A program can still access the actual virtual terminal if called via
+\fIvtdirect\fP:
 
 .nf
 .I
@@ -211,9 +171,6 @@ the program is called via \fIvtdirect\fP:
 .fi
 
 this runs program directly on the virtual terminal; this is necessary to run
-\fIstartx(1)\fP, for example
-
-.P
-In the latter two cases, text produced by the program does not go in the
+\fIstartx(1)\fP, for example. Text produced by the program does not go in the
 scrollback buffer and cannot therefore be later retrieved by scrolling up.
 
