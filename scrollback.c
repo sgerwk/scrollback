@@ -895,7 +895,7 @@ int main(int argn, char *argv[]) {
 
 	buffersize = 8 * 1024;
 	singlechar = -1;
-	vtforward = 1;
+	vtforward = 0;
 	checkonly = 0;
 	keysonly = 0;
 	debug = 0;
@@ -912,7 +912,7 @@ int main(int argn, char *argv[]) {
 			singlechar = 1;
 			break;
 		case 'v':
-			vtforward = 0;
+			vtforward = 1;
 			break;
 		case 'c':
 			checkonly = 1;
