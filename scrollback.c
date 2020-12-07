@@ -371,16 +371,28 @@ int vtfd;		/* terminal file descriptor */
  */
 void vtrun() {
 	struct termios orig, temp;
-	char buf[40];
+	char buf[100];
+	char *argv[] = {"sh", NULL, NULL};
+	pid_t pid;
 
-	sprintf(buf, "sh %s/.scrollback.%d", getenv("HOME"), vtno);
 	tcgetattr(0, &orig);
 	temp = orig;
 	temp.c_iflag |= (ICRNL);
 	temp.c_oflag |= (OPOST);
 	tcsetattr(0, TCSADRAIN, &temp);
-	/* tbd: close vtfd in the child if not -1 */
-	system(buf);
+
+	pid = fork();
+	if (pid == 0) {
+		sprintf(buf, "%s/.scrollback.%d", getenv("HOME"), vtno);
+		argv[1] = buf;
+		if (vtfd != -1)
+			close(vtfd);
+		execvp(argv[0], argv);
+		perror(argv[0]);
+		exit(EXIT_FAILURE);
+	}
+
+	waitpid(pid, NULL, 0);
 	tcsetattr(0, TCSADRAIN, &orig);
 }
 
