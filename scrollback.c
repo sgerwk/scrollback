@@ -933,6 +933,30 @@ void parent(int master, pid_t pid) {
 }
 
 /*
+ * run a program in a pseudoterminal
+ */
+int pseudoterminal(char *program, char *argv[]) {
+	pid_t pid;
+	int master;
+
+	pid = forkpty(&master, NULL, NULL, &winsize);
+	if (pid == -1) {
+		perror("forkpty");
+		return -1;
+	}
+
+	if (pid == 0) {
+		execvp(program, argv);
+		perror(program);
+		exit(EXIT_FAILURE);
+	}
+
+	parent(master, pid);
+	waitpid(pid, NULL, 0);
+	return 0;
+}
+
+/*
  * main
  */
 int main(int argn, char *argv[]) {
@@ -941,8 +965,6 @@ int main(int argn, char *argv[]) {
 	int opt;
 	char path[1024];
 	char no[20];
-	int master;
-	pid_t p;
 	int res;
 	char t;
 	char vtstring[20];
@@ -1096,21 +1118,9 @@ int main(int argn, char *argv[]) {
 
 					/* pty fork */
 
-	p = forkpty(&master, NULL, NULL, &winsize);
-	if (p == -1) {
-		perror("forkpty");
-		return EXIT_FAILURE;
-	}
+	res = pseudoterminal(shell, argv + optind);
 
-	if (p == 0) {
-		execvp(shell, argv + optind);
-		perror(shell);
-		return EXIT_FAILURE;
-	}
-
-	parent(master, p);
-	wait(NULL);
 	system("reset -I");
-	return EXIT_SUCCESS;
+	return res ? EXIT_FAILURE : EXIT_SUCCESS;
 }
 
