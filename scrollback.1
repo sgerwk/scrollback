@@ -148,29 +148,24 @@ terminal. It avoids the following \fIexec\fP in this case.
 .
 .SH DIRECT ACCESS TO THE VIRTUAL TERMINAL
 
-\fIscrollback\fP creates a pseudoterminal and runs the shell in it, forwarding
-data back and forth between the pseudoterminal and the actual virtual terminal.
+Some programs do not run in \fIscrollback\fP, for example \fIstartx\fP. Others
+do not run properly: for example, \fImpv\fP continues to play even after
+switching to a different terminal.
 
-The shell and all programs executed from it run in the pseudoterminal, for
-example \fI/dev/pts/0\fP. As long as they only exchange text with the
-pseudoterminal (read and write) this sufficies because \fIscrollback\fP
-forwards it between \fI/dev/pts/0\fP and the actual virtual terminal, for
-example \fI/dev/tty1\fP.
+These programs require direct access to the terminal, cannot be run within a
+program such as \fIscrollback\fP. They do if run through the \fIvtdirect\fP
+script, like \fIvtdirect startx\fP and \fIvtdirect mpv ...\fP.
 
-However, the \fIioctl(2)\fP calls on the pseudoterminal cannot be forwarded.
-The functions described in \fIioctl_console(2)\fP for \fI/dev/tty1\fP do not
-work on \fI/dev/pts/0\fP. Opening \fI/dev/tty1\fP do not work either because
-access to it is denied by the operating system.
-
-A program can still access the actual virtual terminal if called via
-\fIvtdirect\fP:
+The inconvenience of prepending each such command with the name of the script
+is avoided by setting aliases in the shell initialization file:
 
 .nf
-.I
-	vtdirect "program arg1 arg2..."
+\fI
+if $SCROLLBACK false;
+then
+	alias startx='vtdirect startx'
+	alias mpv='vtdirect mpv'
+fi
+\fP
 .fi
-
-this runs program directly on the virtual terminal; this is necessary to run
-\fIstartx(1)\fP, for example. Text produced by the program does not go in the
-scrollback buffer and cannot therefore be later retrieved by scrolling up.
 

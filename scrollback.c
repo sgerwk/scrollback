@@ -70,6 +70,50 @@
  * at the start of the next
  */
 
+/*
+ * direct access to the terminal
+ * -----------------------------
+ *
+ * the printed characters are intercepted to be saved in the scrollback buffer
+ * by running the shell in a pseudoterminal like /dev/pts/0 and forwarding data
+ * between it and the actual terminal, such as /dev/tty1; the pseudoterminal
+ * looks like the actual terminal from the point of view of characters read and
+ * printed
+ *
+ * this does not always suffice; programs that draw directly on the framebuffer
+ * (rather than sending characters to the terminal) need the actual terminal to
+ * deal with terminal switching (stop drawing when swithing to another terminal
+ * and redrawing when swithing back to theirs); such operations and the others
+ * in console_ioctl(2) require the actual terminal; they cannot be forwarded
+ *
+ * some operation can be done on the VT_FILENO file descriptor; when scrollback
+ * is called with -v, it leaves an open file descriptor of the actual terminal
+ * to the shell; programs can retrieve its number in VT_FILENO environment
+ * variable:
+ *
+ *	vtstring = getenv("VT_FILENO");
+ *	if (vtstring)
+ *		vtno = atoi(vtstring);
+ *	else
+ *		vtno = open("/dev/tty", O_RDWR);
+ *	...
+ *	ioctl(vtno, KDGETLED, &leds);
+ *
+ * while KDGETLED works this way, others ioctl functions do not; terminal
+ * switching functions do not, for example; they can still be performed by
+ * calling the program through vtdirect; for example, startx is run as:
+ *
+ *	vtdirect startx
+ *
+ * the program name and arguments are saved in the file $HOME/.scrollback.no
+ * and ESC[0v is printed to the terminal; no is the number of the terminal, for
+ * example is 1 for /dev/tty1; the escape sequence makes scrollback freeze
+ * forwarding characters and execute the script instead; since scrollback runs
+ * on the actual terminal the program does as well; the drawback is that its
+ * output does not go in the scrollback buffer, and cannot therefore be later
+ * retrieved by scrolling up
+ */
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <fcntl.h>
