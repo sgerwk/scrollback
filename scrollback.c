@@ -938,14 +938,16 @@ void parent(int master, pid_t pid) {
 int pseudoterminal(char *program, char *argv[]) {
 	pid_t pid;
 	int master;
+	char pts[1000];
 
-	pid = forkpty(&master, NULL, NULL, &winsize);
+	pid = forkpty(&master, pts, NULL, &winsize);
 	if (pid == -1) {
 		perror("forkpty");
 		return -1;
 	}
 
 	if (pid == 0) {
+		setenv("SCROLLBACKPTS", pts, 1);
 		execvp(program, argv);
 		perror(program);
 		exit(EXIT_FAILURE);
