@@ -161,10 +161,13 @@ is avoided by setting aliases in the shell initialization file:
 
 .nf
 \fI
-if $SCROLLBACK false;
+if $SCROLLBACK false && [ "$SCROLLBACKPTS" == $(tty) ];
 then
+	alias setfont='vtdirect setfont'
 	alias startx='vtdirect startx'
 	alias mpv='vtdirect mpv'
+	alias fbv='vtdirect fbv'
+	alias hovacui='vtdirect hovacui'
 fi
 \fP
 .fi
