@@ -425,18 +425,27 @@ void vtrun() {
 	temp.c_oflag |= (OPOST);
 	tcsetattr(STDIN_FILENO, TCSADRAIN, &temp);
 
+	if (debug & DEBUGESCAPE)
+		fflush(logescape);
+
 	pid = fork();
 	if (pid == 0) {
 		sprintf(buf, "%s/.scrollback.%d", getenv("HOME"), vtno);
 		argv[1] = buf;
+		if (debug & DEBUGESCAPE) {
+			fprintf(logescape, "\n[run:%s", buf);
+			fflush(logescape);
+		}
 		if (vtfd != -1)
 			close(vtfd);
 		execvp(argv[0], argv);
 		perror(argv[0]);
 		exit(EXIT_FAILURE);
 	}
-
 	waitpid(pid, NULL, 0);
+	if (debug & DEBUGESCAPE)
+		fprintf(logescape, "]\n");
+
 	tcsetattr(STDIN_FILENO, TCSADRAIN, &orig);
 }
 
