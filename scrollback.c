@@ -419,11 +419,11 @@ void vtrun() {
 	char *argv[] = {"sh", NULL, NULL};
 	pid_t pid;
 
-	tcgetattr(0, &orig);
+	tcgetattr(STDIN_FILENO, &orig);
 	temp = orig;
 	temp.c_iflag |= (ICRNL);
 	temp.c_oflag |= (OPOST);
-	tcsetattr(0, TCSADRAIN, &temp);
+	tcsetattr(STDIN_FILENO, TCSADRAIN, &temp);
 
 	pid = fork();
 	if (pid == 0) {
@@ -437,7 +437,7 @@ void vtrun() {
 	}
 
 	waitpid(pid, NULL, 0);
-	tcsetattr(0, TCSADRAIN, &orig);
+	tcsetattr(STDIN_FILENO, TCSADRAIN, &orig);
 }
 
 /*
