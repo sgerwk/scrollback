@@ -117,19 +117,25 @@ that from \fIsystemctl(1)\fP.
 Running \fIscrollback\fP from a shell initialization file such as \fI.bashrc\fP
 is possible but requires some care. Since \fIscrollback\fP calls the shell
 itself, its initialization file would be processed again, resulting in an
-infinite loop of calls to \fIscrollback\fP.
+infinite loop of calls to \fIscrollback\fP. Also, \fIscrollback\fP is only to
+be run in a virtual terminal.
 
-This is avoided by using the following in \fI.bashrc\fP:
+These checks can be implemented in \fI.bashrc\fP as follows:
 
 .nf
-.I
-  ! $SCROLLBACK false && [ $(tty) != /dev/tty6 ] && \\
-.I
+\fI
+  ! $SCROLLBACK false && \\
+  tty | grep -q '/dev/tty' && [ $(tty) != /dev/tty6 ] && \\
   scrollback -c /bin/bash && exec scrollback /bin/bash
+\fP
 .fi
 
 The evironment variable \fISCROLLBACK\fP is set by \fIscrollback\fP itself to
-true. The first part of the line ensures that the program will not call itself.
+true. The first check ensures that the program will not call itself.
+
+The second check is whether the terminal is a virtual terminal and not a
+pseudoterminal. This makes \fIscrollback\fP not be called from \fIxterm(1)\fP
+or \fIscreen(1)\fP.
 
 Since the command \fIexec scrollback /bin/bash\fP makes \fIscrollback\fP
 replace the current shell (the one that is executing \fI.bashrc\fP), a failure
