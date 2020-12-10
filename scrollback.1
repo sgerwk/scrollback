@@ -161,7 +161,7 @@ is avoided by setting aliases in the shell initialization file:
 
 .nf
 \fI
-if $SCROLLBACK false && [ "$SCROLLBACKPTS" == $(tty) ];
+if $SCROLLBACK false && [ "$SCROLLBACKPTS" = $(tty) ];
 then
 	alias setfont='vtdirect setfont'
 	alias startx='vtdirect startx'
