@@ -343,13 +343,28 @@ int scrollkeys(int verbose) {
 }
 
 /*
- * disable line buffering
+ * enable or disable line buffering
  */
-void nolinebuffering() {
+void enablelinebuffering() {
 	struct termios st;
-	tcgetattr(0, &st);
-	cfmakeraw(&st);
-	tcsetattr(0, TCSADRAIN, &st);
+	signal(SIGINT, SIG_DFL);
+	// the following line enables ctrl-Z in the vtdirect calls; it is
+	// currently disabled because it stops the child, but scrollback is
+	// still waiting for it to terminate; should instead return to the main
+	// loop, where some condition makes it resume the child and wait again
+	// for it to terminate
+	// signal(SIGTSTP, SIG_DFL);
+	tcgetattr(STDIN_FILENO, &st);
+	st.c_lflag |=  (ECHO | ICANON | ISIG | IEXTEN);
+	tcsetattr(STDIN_FILENO, TCSADRAIN, &st);
+}
+void disablelinebuffering() {
+	struct termios st;
+	signal(SIGINT, SIG_IGN);
+	signal(SIGTSTP, SIG_IGN);
+	tcgetattr(STDIN_FILENO, &st);
+	st.c_lflag &= ~(ECHO | ICANON | ISIG | IEXTEN);
+	tcsetattr(STDIN_FILENO, TCSADRAIN, &st);
 }
 
 /*
@@ -414,16 +429,9 @@ int vtfd;		/* terminal file descriptor */
  * run a program directly on the virtual terminal
  */
 void vtrun() {
-	struct termios orig, temp;
 	char buf[100];
 	char *argv[] = {"sh", NULL, NULL};
 	pid_t pid;
-
-	tcgetattr(STDIN_FILENO, &orig);
-	temp = orig;
-	temp.c_iflag |= (ICRNL);
-	temp.c_oflag |= (OPOST);
-	tcsetattr(STDIN_FILENO, TCSADRAIN, &temp);
 
 	if (debug & DEBUGESCAPE)
 		fflush(logescape);
@@ -438,15 +446,16 @@ void vtrun() {
 		}
 		if (vtfd != -1)
 			close(vtfd);
+		enablelinebuffering();
 		execvp(argv[0], argv);
 		perror(argv[0]);
 		exit(EXIT_FAILURE);
 	}
+
 	waitpid(pid, NULL, 0);
+	disablelinebuffering();
 	if (debug & DEBUGESCAPE)
 		fprintf(logescape, "]\n");
-
-	tcsetattr(STDIN_FILENO, TCSADRAIN, &orig);
 }
 
 /*
@@ -921,7 +930,7 @@ void parent(int master, pid_t pid) {
 	if (debug & DEBUGBUFFER)
 		logbuffer = logopen(LOGBUFFER);
 
-	nolinebuffering();
+	disablelinebuffering();
 	buffer = malloc(sizeof(u_int32_t) * buffersize);
 	for (i = 0; i < buffersize; i++)
 		buffer[i] = ' ';
