@@ -991,7 +991,7 @@ int main(int argn, char *argv[]) {
 
 					/* arguments */
 
-	buffersize = 8 * 1024;
+	buffersize = 32 * 1024;
 	singlechar = -1;
 	vtforward = 0;
 	checkonly = 0;
