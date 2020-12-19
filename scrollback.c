@@ -7,7 +7,6 @@
  * tbd: option for the scrollup/scrolldown keycodes: keycodeup, keycodedown
  * tbd: colors
  * tbd: option for the number of lines to scroll (lines)
- * tbd: when scrolling, also use up/down for scrolling 1 line
  * tbd: implement common cursor movements instead of asking the position
  */
 
