@@ -191,6 +191,8 @@ FILE *logbuffer;
 #define HOMEPOSITION          "\033[H"
 #define SAVECURSOR            "\033[s"
 #define RESTORECURSOR         "\033[u"
+#define MAKECURSORVISIBLE     "\033[25h"
+#define MAKECURSORINVISIBLE   "\033[25l"
 #define BREAKOUT              "\033[0v"
 
 /*
@@ -496,7 +498,7 @@ void showscrollback() {
 	u_int32_t c, prev;
 
 	size = (winsize.ws_row - (show == origin ? 0 : 2)) * winsize.ws_col;
-	fprintf(stdout, HOMEPOSITION RESETATTRIBUTES);
+	fprintf(stdout, MAKECURSORINVISIBLE HOMEPOSITION RESETATTRIBUTES);
 	if (show != origin) {
 		all = winsize.ws_row * winsize.ws_col;
 		rows = (buffersize - all) / winsize.ws_col;
@@ -524,7 +526,7 @@ void showscrollback() {
 			(origin - show) / winsize.ws_col);
 	}
 	else
-		fprintf(stdout, RESTORECURSOR);
+		fprintf(stdout, RESTORECURSOR MAKECURSORVISIBLE);
 	fflush(stdout);
 }
 
