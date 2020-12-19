@@ -187,6 +187,7 @@ FILE *logbuffer;
 #define NORMALBACKGROUND      "\033[49m"
 #define ERASECURSORDISPLAY    "\033[J"
 #define ERASEDISPLAY          "\033[2J"
+#define ERASECURSORLINE       "\033[K"
 #define HOMEPOSITION          "\033[H"
 #define SAVECURSOR            "\033[s"
 #define RESTORECURSOR         "\033[u"
@@ -495,13 +496,13 @@ void showscrollback() {
 	u_int32_t c, prev;
 
 	size = (winsize.ws_row - (show == origin ? 0 : 2)) * winsize.ws_col;
-	fprintf(stdout, HOMEPOSITION ERASEDISPLAY RESETATTRIBUTES);
+	fprintf(stdout, HOMEPOSITION RESETATTRIBUTES);
 	if (show != origin) {
 		all = winsize.ws_row * winsize.ws_col;
 		rows = (buffersize - all) / winsize.ws_col;
 		if (show - winsize.ws_col >= 0 &&
 		    rows > (origin - show) / winsize.ws_col)
-			fprintf(stdout, BARUP);
+			fprintf(stdout, BARUP ERASECURSORLINE);
 		fprintf(stdout, "\r\n");
 	}
 	prev = 0;
@@ -519,7 +520,7 @@ void showscrollback() {
 		prev = c;
 	}
 	if (show != origin) {
-		fprintf(stdout, BARDOWN "       %d lines below",
+		fprintf(stdout, BARDOWN "      %d lines below" ERASECURSORLINE,
 			(origin - show) / winsize.ws_col);
 	}
 	else
