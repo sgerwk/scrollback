@@ -1035,6 +1035,7 @@ int main(int argn, char *argv[]) {
 		printf("usage:\n\t%s ", argv[0]);
 		printf("[-b buffersize] [-u] [-s] [-v] [-c] [-k] [-d level]\n");
 		printf("\t\t\t[-h] /path/to/shell\n");
+		printf("\t\t-b buffersize\tsize of scrollback buffer\n");
 		printf("\t\t-u\t\tterminal is in unicode mode\n");
 		printf("\t\t-s\t\tterminal is not in unicode mode\n");
 		printf("\t\t-v\t\tenable the VT_FILENO enviroment variable\n");
