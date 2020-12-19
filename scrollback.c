@@ -6,7 +6,6 @@
  * tbd: option for the scroll control strings: scrollup, scrolldown
  * tbd: option for the scrollup/scrolldown keycodes: keycodeup, keycodedown
  * tbd: colors
- * tbd: option for the number of lines to scroll (lines)
  * tbd: implement common cursor movements instead of asking the position
  */
 
@@ -981,7 +980,9 @@ int pseudoterminal(char *program, char *argv[]) {
 int main(int argn, char *argv[]) {
 	char *shell;
 	int vtforward, checkonly, keysonly, usage;
+	char *linestring;
 	int opt;
+	int a, b;
 	char path[1024];
 	char no[20];
 	int res;
@@ -991,16 +992,20 @@ int main(int argn, char *argv[]) {
 					/* arguments */
 
 	buffersize = 32 * 1024;
+	linestring = NULL;
 	singlechar = -1;
 	vtforward = 0;
 	checkonly = 0;
 	keysonly = 0;
 	debug = 0;
 	usage = 0;
-	while (-1 != (opt = getopt(argn, argv, "b:usvckd:h"))) {
+	while (-1 != (opt = getopt(argn, argv, "b:l:usvckd:h"))) {
 		switch (opt) {
 		case 'b':
 			buffersize = atoi(optarg);
+			break;
+		case 'l':
+			linestring = optarg;
 			break;
 		case 'u':
 			singlechar = 0;
@@ -1033,9 +1038,10 @@ int main(int argn, char *argv[]) {
 	}
 	if (usage) {
 		printf("usage:\n\t%s ", argv[0]);
-		printf("[-b buffersize] [-u] [-s] [-v] [-c] [-k] [-d level]\n");
-		printf("\t\t\t[-h] /path/to/shell\n");
+		printf("[-b buffersize] [-l lines] [-u] [-s] [-v] [-c] [-k]\n");
+		printf("\t\t\t[-d level] [-h] /path/to/shell\n");
 		printf("\t\t-b buffersize\tsize of scrollback buffer\n");
+		printf("\t\t-l lines\tlines to scroll every time\n");
 		printf("\t\t-u\t\tterminal is in unicode mode\n");
 		printf("\t\t-s\t\tterminal is not in unicode mode\n");
 		printf("\t\t-v\t\tenable the VT_FILENO enviroment variable\n");
@@ -1101,11 +1107,24 @@ int main(int argn, char *argv[]) {
 		printf("not a linux terminal, not running\n");
 		exit(EXIT_FAILURE);
 	}
-	lines = winsize.ws_row / 2;
 	if (buffersize < winsize.ws_row * winsize.ws_col) {
 		printf("buffer too small: %d, ", buffersize);
 		printf("should be greater than %d\n",
 			winsize.ws_row * winsize.ws_col);
+		exit(EXIT_FAILURE);
+	}
+
+					/* number of lines to scroll */
+
+	if (linestring == NULL)
+		lines = winsize.ws_row / 2;
+	else if (2 == sscanf(linestring, "%d/%d%c", &a, &b, &t) &&
+	        a > 0 && b > 0 && a <= b)
+		lines = winsize.ws_row * a / b;
+	else if (1 == sscanf(linestring, "%d%c", &a, &t))
+		lines = a;
+	else {
+		printf("cannot parse lines: %s\n", linestring);
 		exit(EXIT_FAILURE);
 	}
 

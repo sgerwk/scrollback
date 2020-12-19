@@ -14,6 +14,7 @@ scrollback - a scrollback buffer for Linux virtual terminals
 .TP 11
 .B scrollback
 [\fI-b buffersize\fP]
+[\fI-l lines\fP]
 [\fI-u\fP]
 [\fI-s\fP]
 [\fI-v\fP]
@@ -43,6 +44,12 @@ configuration, described below. Scrolling down is done by \fIF12\fP or
 .TP
 .BI -b " buffersize
 set the size of the buffer, the number of characters it contains
+
+.TP
+.BI -l " lines
+how many lines to scroll every time; the argument can be a single integer or a
+fraction \fIa/b\fP for a fraction of lines of the screen; for example,
+\fI1/2\fP means to scroll half of the screen every time
 
 .TP
 .B
