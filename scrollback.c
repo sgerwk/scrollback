@@ -504,8 +504,8 @@ void showscrollback() {
 		rows = (buffersize - all) / winsize.ws_col;
 		if (show - winsize.ws_col >= 0 &&
 		    rows > (origin - show) / winsize.ws_col)
-			fprintf(stdout, BARUP ERASECURSORLINE);
-		fprintf(stdout, "\r\n");
+			fprintf(stdout, BARUP);
+		fprintf(stdout, ERASECURSORLINE "\r\n");
 	}
 	prev = 0;
 	for (i = 0; i < size; i++) {
