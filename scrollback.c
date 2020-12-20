@@ -523,7 +523,7 @@ void showscrollback() {
 	}
 	if (show != origin) {
 		fprintf(stdout, BARDOWN "      %d lines below" ERASECURSORLINE,
-			(origin - show) / winsize.ws_col);
+			(origin - show) / winsize.ws_col + 2);
 	}
 	else
 		fprintf(stdout, RESTORECURSOR MAKECURSORVISIBLE);
