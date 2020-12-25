@@ -247,6 +247,7 @@ int setkey(int keycode, int shift, int func, char *keystring) {
 	fprintf(stdout, " => ");
 	printescape(stdout, (unsigned char*) keystring);
 
+	close(tty);
 	return 0;
 }
 
