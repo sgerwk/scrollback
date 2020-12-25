@@ -252,22 +252,6 @@ int setkey(int keycode, int shift, int func, char *keystring) {
 }
 
 /*
- * set scrolling keys
- */
-int setscrollkeys() {
-	int res;
-
-	res = setkey(keycodeup, shift, K_F99, KEYSHIFTPAGEUP);
-	if (res != 0)
-		return res;
-	res = setkey(keycodedown, shift, K_F100, KEYSHIFTPAGEDOWN);
-	if (res != 0)
-		return res;
-
-	return 0;
-}
-
-/*
  * key to function string
  */
 int keytofunction(int keycode, int shift, char **keystring) {
