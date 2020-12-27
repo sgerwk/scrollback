@@ -28,8 +28,8 @@ Keys
 
 The keys for scrolling are F11 and F12. The old combinations shift-pageup and
 shift-pagedown can be used instead by calling ``scrollback -k`` at least once
-as root. This is done by systemctl with the included ``scrollback.service``
-file.
+as root. Alternatively, it is done by the included keymap file
+``compose.scrollback``.
 
 Running startx and similar
 --------------------------
