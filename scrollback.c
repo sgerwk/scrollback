@@ -675,6 +675,7 @@ void shelltoterminal(int master, unsigned char c) {
 		else if (! strcmp(sequence, BREAKOUT)) {
 			vtrun();
 			deletescript(1);
+			write(master, "\n", 1);
 		}
 		else if (readposition(sequence, MOVECURSORTERMINATOR)) {
 			escape = -1;

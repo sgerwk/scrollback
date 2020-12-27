@@ -28,4 +28,4 @@ done
 echo						>> $SCRIPT
 
 echo -en '\033[0v'
-
+read
