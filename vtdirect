@@ -18,9 +18,11 @@ echo "cd $(pwd)"				>> $SCRIPT
 echo -n "$1"					>> $SCRIPT
 while [ $# -ge 2 ];
 do
-	echo -n " '"				>> $SCRIPT
-	echo -n "$2" | sed "s,','\"'\"',g"	>> $SCRIPT
-	echo -n "'"				>> $SCRIPT
+	echo -n "$2" | sed "
+		s,','\"'\"',g
+		s,^, ',
+		s,$,',
+	"					>> $SCRIPT
 	shift 1
 done
 echo						>> $SCRIPT
