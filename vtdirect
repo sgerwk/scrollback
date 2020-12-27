@@ -4,7 +4,7 @@
 
 [ $# -lt 1 ] && echo "program to run missing" && exit 1
 
-if ! $SCROLLBACK false;
+if ! $SCROLLBACK false || ! [ "$SCROLLBACKPTS" == $(tty) ];
 then
 	exec "${@}"
 	exit 1
