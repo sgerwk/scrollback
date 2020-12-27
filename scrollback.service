@@ -1,9 +1,12 @@
 [Unit]
 Description=Scrollback Keys
+After=systemd-udevd.service
 
 [Service]
 Type=oneshot
 RemainAfterExit=yes
+StandardInput=tty
+StandardOutput=tty
 ExecStart=/usr/bin/scrollback -k
 
 [Install]
