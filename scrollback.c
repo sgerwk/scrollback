@@ -168,6 +168,7 @@ FILE *logbuffer;
 #define ESCAPE                0x1B
 #define BS                    0x08
 #define NL                    0x0A
+#define FF                    0x0C
 #define CR                    0x0D
 #define DEL                   0x7F
 
@@ -622,7 +623,8 @@ void shelltoterminal(int master, unsigned char c) {
 
 				/* escape and special characters */
 
-	if (c <= 0x1F && c != ESCAPE && c != '\b' && c != NL && c != CR) {
+	if (c <= 0x1F && c != ESCAPE &&
+	    c != '\b' && c != NL && c != FF && c != CR) {
 		putc(c, stdout);
 		if (debug & DEBUGESCAPE)
 			putc(c, logescape);
@@ -741,7 +743,7 @@ void shelltoterminal(int master, unsigned char c) {
 		col--;
 		buffer[(buffersize + pos - 1) % buffersize] = ' ';
 	}
-	else if (c == NL)
+	else if (c == NL || c == FF)
 		newrow(winsize);
 	else if (c == CR)
 		col = 0;
