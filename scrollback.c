@@ -341,6 +341,7 @@ void enablelinebuffering() {
 	// for it to terminate
 	// signal(SIGTSTP, SIG_DFL);
 	tcgetattr(STDIN_FILENO, &st);
+	st.c_oflag |=  (ONLCR);
 	st.c_lflag |=  (ECHO | ICANON | ISIG | IEXTEN);
 	tcsetattr(STDIN_FILENO, TCSADRAIN, &st);
 }

@@ -14,7 +14,6 @@ SCRIPT=$HOME/.scrollback.$SCROLLBACKNO
 
 cat /dev/null					>  $SCRIPT
 env | sed 's,^,export ,'			>> $SCRIPT
-echo "stty onlcr"				>> $SCRIPT
 echo "cd $(pwd)"				>> $SCRIPT
 echo -n "$1"					>> $SCRIPT
 while [ $# -ge 2 ];
