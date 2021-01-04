@@ -165,8 +165,8 @@ Some programs do not run in \fIscrollback\fP, for example \fIstartx\fP. Others
 do not run properly: for example, \fImpv\fP continues to play even after
 switching to a different terminal.
 
-These programs require direct access to the terminal, cannot be run within a
-program such as \fIscrollback\fP. They do if run through the \fIvtdirect\fP
+These programs require direct access to the terminal, they cannot be run within
+a program such as \fIscrollback\fP. They can if run through the \fIvtdirect\fP
 script, like \fIvtdirect startx\fP and \fIvtdirect mpv ...\fP.
 
 The inconvenience of prepending each such command with the name of the script
@@ -184,4 +184,8 @@ then
 fi
 \fP
 .fi
+
+An alternative is provided by the \fIVTDIRECT\fP environment variable set by
+\fIscrollback\fP. Commands called like \fI$VTDIRECT startx\fP and \fI$VTDIRECT
+mpv ...\fP work as usual when \fIVTDIRECT\fP is undefined.
 

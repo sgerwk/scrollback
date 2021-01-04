@@ -958,6 +958,7 @@ int pseudoterminal(char *program, char *argv[]) {
 
 	if (pid == 0) {
 		setenv("SCROLLBACKPTS", pts, 1);
+		setenv("VTDIRECT", "vtdirect", 1);
 		execvp(program, argv);
 		perror(program);
 		exit(EXIT_FAILURE);
