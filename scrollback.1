@@ -104,7 +104,7 @@ inline help
 .
 .
 .
-.SH KEY CONFIGURATION
+.SH KEYS
 
 .I
 scrollback
@@ -115,6 +115,9 @@ strings by \fIloadkeys(1)\fP. An easy way to do that is to call
 scrollback -k
 at startup as root. The service file \fIscrollback.service\fP allows doing
 that from \fIsystemctl(1)\fP.
+
+During scrolling, \fIF2\fP saves the whole content of the scrollback buffer to
+the file \fI/run/user/UID/scrollbackbuffer\fP where \fIUID\fP is the user ID.
 
 .
 .

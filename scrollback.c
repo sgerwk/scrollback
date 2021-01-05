@@ -172,6 +172,7 @@ FILE *logbuffer;
 #define CR                    0x0D
 #define DEL                   0x7F
 
+#define KEYF2                 "\033[[B"
 #define KEYF11                "\033[23~"
 #define KEYF12                "\033[24~"
 #define KEYSHIFTPAGEUP        "\033[11~"
@@ -477,10 +478,57 @@ int positionstatus;	/* is the cursor position known? */
 #define POSITION_UNCERTAIN 2
 
 /*
+ * message to the user when scrolling
+ */
+void notify(char *message) {
+	fprintf(stdout, "\033[%d;%dH%s", winsize.ws_row + 1, 50, message);
+	fflush(stdout);
+}
+
+/*
+ * save the scrollback buffer to a file
+ */
+void savebuffer() {
+	char path[4096];
+	int all, size, start, i;
+	char buf[10];
+	u_int32_t c;
+	FILE *savefile;
+
+	if (debug & DEBUGESCAPE) {
+		fprintf(logescape, "[savebuffer]");
+		fflush(logescape);
+	}
+
+	snprintf(path, 4096, LOGDIR "/scrollbackbuffer", getuid());
+	savefile = fopen(path, "w");
+	if (savefile == NULL) {
+		notify("cannot create file\n");
+		return;
+	}
+
+	all = (buffersize / winsize.ws_col) * winsize.ws_col;
+	size = winsize.ws_row * winsize.ws_col;
+	start = origin - all + size <= 0 ? 0 : origin - all + size;
+	for (i = 0; i < all && i < origin + size; i++) {
+		c = buffer[(start + i) % buffersize];
+		if (singlechar)
+			putc(c, savefile);
+		else {
+			ucs4toutf8(c, buf);
+			fputs(buf, savefile);
+		}
+	}
+
+	fclose(savefile);
+	notify("scrollback buffer saved");
+}
+
+/*
  * show a segment of the scrollback buffer on screen
  */
-#define BARUP   "            " BLUEBACKGROUND "↑↑↑↑↑↑↑↑↑" NORMALBACKGROUND
-#define BARDOWN "            " BLUEBACKGROUND "↓↓↓↓↓↓↓↓↓" NORMALBACKGROUND
+#define BARUP   "       " BLUEBACKGROUND "↑↑↑↑↑↑↑↑↑" NORMALBACKGROUND
+#define BARDOWN "       " BLUEBACKGROUND "↓↓↓↓↓↓↓↓↓" NORMALBACKGROUND
 void showscrollback() {
 	int size, all, rows, i;
 	char buf[10];
@@ -511,7 +559,7 @@ void showscrollback() {
 		prev = c;
 	}
 	if (show != origin) {
-		fprintf(stdout, BARDOWN "      %d lines below" ERASECURSORLINE,
+		fprintf(stdout, BARDOWN "   %d lines below" ERASECURSORLINE,
 			(origin - show) / winsize.ws_col + 2);
 	}
 	else
@@ -784,6 +832,8 @@ void terminaltoshell(int master, unsigned char c, int next) {
 		specialsequence[special++] = c;
 		if (c == '[' && special - 1 == 1)
 			return;
+		if (c == '[' && special - 1 == 2 && specialsequence[1] == '[')
+			return;
 		if ((c < 0x40 && c != '.') || c > 0x7F)
 			return;
 
@@ -813,6 +863,10 @@ void terminaltoshell(int master, unsigned char c, int next) {
 					return;
 				pos = origin;
 			}
+		}
+		else if (! strcmp(specialsequence, KEYF2) && show != origin) {
+			savebuffer();
+			return;
 		}
 		else if (readposition(specialsequence, GETPOSITIONTERMINATOR))
 			return;
