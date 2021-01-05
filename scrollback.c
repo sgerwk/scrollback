@@ -173,6 +173,7 @@ FILE *logbuffer;
 #define DEL                   0x7F
 
 #define KEYF2                 "\033[[B"
+#define KEYF3                 "\033[[C"
 #define KEYF11                "\033[23~"
 #define KEYF12                "\033[24~"
 #define KEYSHIFTPAGEUP        "\033[11~"
@@ -481,47 +482,8 @@ int positionstatus;	/* is the cursor position known? */
  * message to the user when scrolling
  */
 void notify(char *message) {
-	fprintf(stdout, "\033[%d;%dH%s", winsize.ws_row + 1, 50, message);
+	fprintf(stdout, "\033[%d;%dH%s", winsize.ws_row + 1, 40, message);
 	fflush(stdout);
-}
-
-/*
- * save the scrollback buffer to a file
- */
-void savebuffer() {
-	char path[4096];
-	int all, size, start, i;
-	char buf[10];
-	u_int32_t c;
-	FILE *savefile;
-
-	if (debug & DEBUGESCAPE) {
-		fprintf(logescape, "[savebuffer]");
-		fflush(logescape);
-	}
-
-	snprintf(path, 4096, LOGDIR "/scrollbackbuffer", getuid());
-	savefile = fopen(path, "w");
-	if (savefile == NULL) {
-		notify("cannot create file\n");
-		return;
-	}
-
-	all = (buffersize / winsize.ws_col) * winsize.ws_col;
-	size = winsize.ws_row * winsize.ws_col;
-	start = origin - all + size <= 0 ? 0 : origin - all + size;
-	for (i = 0; i < all && i < origin + size; i++) {
-		c = buffer[(start + i) % buffersize];
-		if (singlechar)
-			putc(c, savefile);
-		else {
-			ucs4toutf8(c, buf);
-			fputs(buf, savefile);
-		}
-	}
-
-	fclose(savefile);
-	notify("scrollback buffer saved");
 }
 
 /*
@@ -561,10 +523,57 @@ void showscrollback() {
 	if (show != origin) {
 		fprintf(stdout, BARDOWN "   %d lines below" ERASECURSORLINE,
 			(origin - show) / winsize.ws_col + 2);
+		notify("F2=save F3=less");
 	}
 	else
 		fprintf(stdout, RESTORECURSOR MAKECURSORVISIBLE);
 	fflush(stdout);
+}
+
+/*
+ * save the scrollback buffer to a file
+ */
+void savebuffer(char *command) {
+	char path[4096], exe[8192];
+	int all, size, start, i;
+	char buf[10];
+	u_int32_t c;
+	FILE *savefile;
+
+	if (debug & DEBUGESCAPE) {
+		fprintf(logescape, "[savebuffer]");
+		fflush(logescape);
+	}
+
+	snprintf(path, 4096, LOGDIR "/scrollbackbuffer", getuid());
+	savefile = fopen(path, "w");
+	if (savefile == NULL) {
+		notify("cannot create file\n");
+		return;
+	}
+
+	all = (buffersize / winsize.ws_col) * winsize.ws_col;
+	size = winsize.ws_row * winsize.ws_col;
+	start = origin - all + size <= 0 ? 0 : origin - all + size;
+	for (i = 0; i < all && i < origin + size; i++) {
+		c = buffer[(start + i) % buffersize];
+		if (singlechar)
+			putc(c, savefile);
+		else {
+			ucs4toutf8(c, buf);
+			fputs(buf, savefile);
+		}
+	}
+
+	fclose(savefile);
+
+	if (command == NULL) {
+		notify("scrollback buffer saved");
+		return;
+	}
+	snprintf(exe, 8192, "%s %s", command, path);
+	system(exe);
+	showscrollback();
 }
 
 /*
@@ -865,7 +874,11 @@ void terminaltoshell(int master, unsigned char c, int next) {
 			}
 		}
 		else if (! strcmp(specialsequence, KEYF2) && show != origin) {
-			savebuffer();
+			savebuffer(NULL);
+			return;
+		}
+		else if (! strcmp(specialsequence, KEYF3) && show != origin) {
+			savebuffer("less");
 			return;
 		}
 		else if (readposition(specialsequence, GETPOSITIONTERMINATOR))
