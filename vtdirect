@@ -14,6 +14,7 @@ SCRIPT=$HOME/.scrollback.$SCROLLBACKNO
 
 cat /dev/null					>  $SCRIPT
 env | sed 's,^,export ,'			>> $SCRIPT
+echo 'unset VTDIRECT'				>> $SCRIPT
 echo "cd $(pwd)"				>> $SCRIPT
 echo -n "$1"					>> $SCRIPT
 while [ $# -ge 2 ];
