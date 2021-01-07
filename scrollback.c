@@ -185,6 +185,7 @@ FILE *logbuffer;
 #define SEQUENCESTARTER        ESCAPE
 #define GETPOSITIONTERMINATOR          'R'
 #define MOVECURSORTERMINATOR           'H'
+#define MOVECURSORUP          "\033[1A"
 #define RESETATTRIBUTES       "\033[0m"
 #define BLUEBACKGROUND        "\033[44m"
 #define NORMALBACKGROUND      "\033[49m"
@@ -482,7 +483,8 @@ int positionstatus;	/* is the cursor position known? */
  * message to the user when scrolling
  */
 void notify(char *message) {
-	fprintf(stdout, "\033[%d;%dH%s", winsize.ws_row + 1, 40, message);
+	fprintf(stdout, "\033[%d;%dH", winsize.ws_row + 1, 38);
+	fprintf(stdout, "%.41s ", message);
 	fflush(stdout);
 }
 
@@ -539,6 +541,7 @@ void savebuffer(char *command) {
 	char buf[10];
 	u_int32_t c;
 	FILE *savefile;
+	int res;
 
 	if (debug & DEBUGESCAPE) {
 		fprintf(logescape, "[savebuffer]");
@@ -572,7 +575,13 @@ void savebuffer(char *command) {
 		return;
 	}
 	snprintf(exe, 8192, "%s %s", command, path);
-	system(exe);
+	notify(exe);
+	notify(MOVECURSORUP "\b\b ");
+	res = system(exe);
+	if (res == -1)
+		notify(strerror(errno));
+	if (res == -1 || ! WIFEXITED(res) || WEXITSTATUS(res) == 127)
+		sleep(2);
 	showscrollback();
 }
 
