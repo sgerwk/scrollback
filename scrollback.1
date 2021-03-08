@@ -167,13 +167,14 @@ terminal. It avoids the following \fIexec\fP in this case.
 .
 .SH DIRECT ACCESS TO THE VIRTUAL TERMINAL
 
-Some programs do not run in \fIscrollback\fP, for example \fIstartx\fP. Others
-do not run properly: for example, \fImpv\fP continues to play even after
+Some programs do not work in \fIscrollback\fP, for example \fIstartx\fP. Others
+do not work properly: for example, \fImpv\fP continues to play even after
 switching to a different terminal.
 
 These programs require direct access to the terminal, they cannot be run within
 a program such as \fIscrollback\fP. They can if run through the \fIvtdirect\fP
-script, like \fIvtdirect startx\fP and \fIvtdirect mpv ...\fP.
+script, like \fIvtdirect startx\fP and \fIvtdirect mpv ...\fP. When run in the
+background, \fIvtdirect\fP may need the \fI-b\fP option.
 
 The inconvenience of prepending each such command with the name of the script
 is avoided by setting aliases in the shell initialization file:

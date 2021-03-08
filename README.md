@@ -36,5 +36,6 @@ Running startx and similar
 
 If a program refuses to run whining about ``VT_GETMODE``, ``KDSETMODE`` or
 something like that, try running it through ``vtdirect``. For example, instead
-of ``startx`` call ``vtdirect startx``.
+of ``startx`` call ``vtdirect startx``. When running in background,
+``vtdirect`` may need the ``-b`` option.
 

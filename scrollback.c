@@ -78,11 +78,11 @@
  * looks like the actual terminal from the point of view of characters read and
  * printed
  *
- * this does not always suffice; programs that draw directly on the framebuffer
- * (rather than sending characters to the terminal) need the actual terminal to
- * deal with terminal switching (stop drawing when swithing to another terminal
- * and redrawing when swithing back to theirs); such operations and the others
- * in console_ioctl(2) require the actual terminal; they cannot be forwarded
+ * yet, it is not the same: the ioctl() calls cannot be forwarded this way;
+ * they are needed by programs that draw directly on the framebuffer (rather
+ * than sending characters to the terminal) to deal with terminal switching
+ * (stop drawing when swithing to another terminal and redrawing when swithing
+ * back to theirs)
  *
  * some operation can be done on the VT_FILENO file descriptor; when scrollback
  * is called with -v, it leaves an open file descriptor of the actual terminal
@@ -98,18 +98,25 @@
  *	ioctl(vtno, KDGETLED, &leds);
  *
  * while KDGETLED works this way, others ioctl functions do not; terminal
- * switching functions do not, for example; they can still be performed by
- * calling the program through vtdirect; for example, startx is run as:
+ * switching functions do not, for example; they do by calling the program
+ * through vtdirect; for example, startx is run as:
  *
  *	vtdirect startx
  *
  * the program name and arguments are saved in the file $HOME/.scrollback.no
- * and ESC[0v is printed to the terminal; no is the number of the terminal, for
- * example is 1 for /dev/tty1; the escape sequence makes scrollback freeze
- * forwarding characters and execute the script instead; since scrollback runs
- * on the actual terminal the program does as well; the drawback is that its
- * output does not go in the scrollback buffer, and cannot therefore be later
- * retrieved by scrolling up
+ * and ESC[0v is written to the terminal; no is the number of the terminal, for
+ * example is 1 for /dev/tty1; when it receives the escape sequence, scrollback
+ * freezes forwarding characters and executes the script instead; since
+ * scrollback runs on the actual terminal the program does as well; the
+ * drawback is that its output does not go in the scrollback buffer, and cannot
+ * therefore be later retrieved by scrolling up
+ *
+ * when the script finishes, a carriage return \n is sent to the terminal to
+ * notify vtdirect so that it can terminate and return to its caller; this is
+ * not done if the escape sequence is ESC[1v, sent by vtdirect with the -b
+ * option; this is for running programs in the background; more generally, it
+ * must be used when waiting for the program termination is not necessary and
+ * the program does not read input nor it should
  */
 
 #include <stdlib.h>
@@ -198,6 +205,7 @@ FILE *logbuffer;
 #define MAKECURSORVISIBLE     "\033[25h"
 #define MAKECURSORINVISIBLE   "\033[25l"
 #define BREAKOUT              "\033[0v"
+#define BREAKOUTNOWAIT        "\033[1v"
 
 /*
  * print an escape sequence in readable form
@@ -746,6 +754,10 @@ void shelltoterminal(int master, unsigned char c) {
 			vtrun();
 			deletescript(1);
 			write(master, "\n", 1);
+		}
+		else if (! strcmp(sequence, BREAKOUTNOWAIT)) {
+			vtrun();
+			deletescript(1);
 		}
 		else if (readposition(sequence, MOVECURSORTERMINATOR)) {
 			escape = -1;
