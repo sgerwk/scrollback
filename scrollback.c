@@ -683,7 +683,7 @@ int utf8pos = 0, utf8len = 0;
 void shelltoterminal(int master, unsigned char c) {
 	int pos;
 	u_int32_t w;
-	char buf[40];
+	char buf[40], t;
 	pid_t pid;
 
 				/* input character: end scrolling mode */
@@ -748,12 +748,14 @@ void shelltoterminal(int master, unsigned char c) {
 			escape = -1;
 			return;
 		}
-		else if (2 == sscanf(sequence, BREAKOUT, &pid, &c) &&
-		         c == BREAKOUTTERMINATOR) {
-			vtrun();
-			deletescript(1);
-			if (pid != 0)
-				kill(pid, SIGTERM);
+		else if (sequence[escape - 1] == BREAKOUTTERMINATOR) {
+			if (2 == sscanf(sequence, BREAKOUT, &pid, &t) &&
+			    t == BREAKOUTTERMINATOR) {
+				vtrun();
+				deletescript(1);
+				if (pid != 0)
+					kill(pid, SIGTERM);
+			}
 		}
 		else if (readposition(sequence, MOVECURSORTERMINATOR)) {
 			escape = -1;
