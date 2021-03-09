@@ -103,20 +103,17 @@
  *
  *	vtdirect startx
  *
- * the program name and arguments are saved in the file $HOME/.scrollback.no
- * and ESC[0v is written to the terminal; no is the number of the terminal, for
- * example is 1 for /dev/tty1; when it receives the escape sequence, scrollback
- * freezes forwarding characters and executes the script instead; since
- * scrollback runs on the actual terminal the program does as well; the
- * drawback is that its output does not go in the scrollback buffer, and cannot
- * therefore be later retrieved by scrolling up
+ * vtdirect creates a script $HOME/.scrollback.no, writes ESC[0;pidv to the
+ * terminal and waits for a signal; the script reproduces the environment and
+ * runs startx; no is the number of the terminal, for example 1 for /dev/tty1
+ * if pid is not zero, it is the number of a process that scrollback kills to
+ * signal that startx terminated, so that vtdirect can terminate too
  *
- * when the script finishes, a carriage return \n is sent to the terminal to
- * notify vtdirect so that it can terminate and return to its caller; this is
- * not done if the escape sequence is ESC[1v, sent by vtdirect with the -b
- * option; this is for running programs in the background; more generally, it
- * must be used when waiting for the program termination is not necessary and
- * the program does not read input nor it should
+ * when it receives the escape sequence, scrollback freezes forwarding
+ * characters and executes the script instead; since scrollback runs on the
+ * actual terminal the program does as well; the drawback is that its output
+ * does not go in the scrollback buffer, and cannot therefore be later
+ * retrieved by scrolling up
  */
 
 #include <stdlib.h>
@@ -204,8 +201,8 @@ FILE *logbuffer;
 #define RESTORECURSOR         "\033[u"
 #define MAKECURSORVISIBLE     "\033[25h"
 #define MAKECURSORINVISIBLE   "\033[25l"
-#define BREAKOUT              "\033[0v"
-#define BREAKOUTNOWAIT        "\033[1v"
+#define BREAKOUT              "\033[0;%d%c"
+#define BREAKOUTTERMINATOR              'v'
 
 /*
  * print an escape sequence in readable form
@@ -687,6 +684,7 @@ void shelltoterminal(int master, unsigned char c) {
 	int pos;
 	u_int32_t w;
 	char buf[40];
+	pid_t pid;
 
 				/* input character: end scrolling mode */
 
@@ -750,14 +748,12 @@ void shelltoterminal(int master, unsigned char c) {
 			escape = -1;
 			return;
 		}
-		else if (! strcmp(sequence, BREAKOUT)) {
+		else if (2 == sscanf(sequence, BREAKOUT, &pid, &c) &&
+		         c == BREAKOUTTERMINATOR) {
 			vtrun();
 			deletescript(1);
-			write(master, "\n", 1);
-		}
-		else if (! strcmp(sequence, BREAKOUTNOWAIT)) {
-			vtrun();
-			deletescript(1);
+			if (pid != 0)
+				kill(pid, SIGTERM);
 		}
 		else if (readposition(sequence, MOVECURSORTERMINATOR)) {
 			escape = -1;

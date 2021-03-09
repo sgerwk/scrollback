@@ -10,8 +10,6 @@ then
 	exit 1
 fi
 
-[ $1 = '-b' ] && BACKGROUND=true && shift 1
-
 SCRIPT=$HOME/.scrollback.$SCROLLBACKNO
 
 cat /dev/null					>  $SCRIPT
@@ -30,10 +28,6 @@ do
 done
 echo						>> $SCRIPT
 
-if $BACKGROUND false;
-then
-	echo -en '\033[1v'
-else
-	echo -en '\033[0v'
-	read
-fi
+sleep infinity &
+echo -en "\033[0;$!v"
+wait
