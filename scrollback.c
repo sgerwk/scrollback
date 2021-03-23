@@ -719,12 +719,14 @@ void shelltoterminal(int master, unsigned char c) {
 		}
 		sequence[escape++] = c;
 		if (escape - 1 == 1) {
-			if (c == '[')
+			if (c == '[' || c == ']')
 				return;
 			else if (c == '8')
 				c = 'A';
 		}
-		if (c < 0x30 || (c < 0x40 && (sequence[1] == '[')) || c > 0x7F)
+		if (c < 0x30 ||
+		    (c < 0x40 && (sequence[1] == '[' || sequence[1] == ']')) ||
+		    c > 0x7F)
 			return;
 
 		sequence[escape] = '\0';
