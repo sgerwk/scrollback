@@ -864,7 +864,7 @@ void terminaltoshell(int master, unsigned char c, int next) {
 			return;
 		if (c == '[' && special - 1 == 2 && specialsequence[1] == '[')
 			return;
-		if ((c < 0x40 && c != '.') || c > 0x7F)
+		if ((c < 0x40 && c != '.' && c != 0x09) || c > 0x7F)
 			return;
 
 		specialsequence[special] = '\0';
