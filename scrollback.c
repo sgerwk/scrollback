@@ -1122,7 +1122,8 @@ int main(int argn, char *argv[]) {
 	if (usage) {
 		printf("usage:\n\t%s ", argv[0]);
 		printf("[-b buffersize] [-l lines] [-u] [-s] [-v] [-c] [-k]\n");
-		printf("\t\t\t[-d level] [-h] /path/to/shell\n");
+		printf("\t\t\t[-d level] [-h] ");
+		printf("/path/to/shell [-- shellargs...]\n");
 		printf("\t\t-b buffersize\tsize of scrollback buffer\n");
 		printf("\t\t-l lines\tlines to scroll every time\n");
 		printf("\t\t-u\t\tterminal is in unicode mode\n");
