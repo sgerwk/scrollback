@@ -19,9 +19,9 @@ echo "cd \"$(pwd)\""				>> $SCRIPT
 echo -n "$1"					>> $SCRIPT
 while [ $# -ge 2 ];
 do
-	echo -n "$2" | sed "
+	echo -n -- "$2" | sed "
 		s,','\"'\"',g
-		s,^, ',
+		s,^-- , ',
 		s,$,',
 	"					>> $SCRIPT
 	shift 1
