@@ -690,7 +690,7 @@ void shelltoterminal(int master, unsigned char c) {
 
 	if (show != origin) {
 		show = origin;
-		showscrollback(winsize);
+		showscrollback();
 	}
 
 				/* escape and special characters */
@@ -822,13 +822,13 @@ void shelltoterminal(int master, unsigned char c) {
 		buffer[(buffersize + pos - 1) % buffersize] = ' ';
 	}
 	else if (c == NL || c == FF)
-		newrow(winsize);
+		newrow();
 	else if (c == CR)
 		col = 0;
 	else {
 		if (col >= winsize.ws_col) {
 			col = 0;
-			newrow(winsize);
+			newrow();
 		}
 		buffer[pos] = w;
 		col++;
@@ -911,7 +911,7 @@ void terminaltoshell(int master, unsigned char c, int next) {
 
 		if (pos != show) {
 			show = pos;
-			showscrollback(winsize);
+			showscrollback();
 		}
 		return;
 	}
