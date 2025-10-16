@@ -1,0 +1,23 @@
+# scrollback service file
+#
+# copy:
+#	pkg-config --variable systemdsystemunitdir systemd
+#	usually /usr/lib/systemd/system
+# enable:
+# 	systemctl start/enable scrollback
+
+[Unit]
+Description=Scrollback Keys
+After=systemd-udevd.service
+After=systemd-vconsole-setup.service
+Wants=systemd-vconsole-setup.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+StandardInput=tty
+StandardOutput=tty
+ExecStart=/usr/bin/scrollback -k
+
+[Install]
+WantedBy=default.target

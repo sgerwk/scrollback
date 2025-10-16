@@ -1,5 +1,9 @@
-# copy to /usr/share/kbd/keymaps/include/compose.scrollback
+# /usr/share/kbd/keymaps/include/compose.scrollback
 #
+# enable/start the scrollback service file scrollback.service
+# systemctl enable/start scrollback
+#
+# alternative:
 # include it from /etc/vconsole.conf, for example:
 # KEYMAP_TOGGLE=compose.all
 # and /usr/share/kbd/keymaps/include/compose.all contains

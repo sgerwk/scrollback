@@ -12,6 +12,8 @@ install: all
 	cp scrollback.1 $(DESTDIR)/usr/share/man/man1
 	mkdir -p $(DESTDIR)/usr/share/kbd/keymaps/include/
 	cp compose.scrollback $(DESTDIR)/usr/share/kbd/keymaps/include/
+	mkdir -p $(DESTDIR)/usr/lib/systemd/system
+	cp scrollback.service $(DESTDIR)/usr/lib/systemd/system
 
 clean:
 	rm -f $(PROGS) *.o *~ logchar logescape
