@@ -8,16 +8,10 @@
 
 [Unit]
 Description=Scrollback Keys
-After=systemd-udevd.service
-After=systemd-vconsole-setup.service
-Wants=systemd-vconsole-setup.service
 
 [Service]
-Type=oneshot
-RemainAfterExit=yes
-StandardInput=tty
-StandardOutput=tty
 ExecStart=/usr/bin/scrollback -k
+Type=oneshot
 
 [Install]
 WantedBy=default.target
