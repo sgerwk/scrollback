@@ -14,6 +14,8 @@ install: all
 	cp compose.scrollback $(DESTDIR)/usr/share/kbd/keymaps/include/
 	mkdir -p $(DESTDIR)/usr/lib/systemd/system
 	cp scrollback.service $(DESTDIR)/usr/lib/systemd/system
+	mkdir -p $(DESTDIR)/usr/lib/udev/rules.d
+	cp 91-scrollback.rules $(DESTDIR)/usr/lib/udev/rules.d
 
 clean:
 	rm -f $(PROGS) *.o *~ logchar logescape

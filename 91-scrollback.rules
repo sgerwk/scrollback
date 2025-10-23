@@ -1,0 +1,4 @@
+# /usr/lib/udev/rules.d
+# load the scrollback keys after each vtcon initialization
+
+ACTION=="add", SUBSYSTEM=="vtconsole", KERNEL=="vtcon*", RUN+="/usr/bin/systemctl --no-block restart scrollback.service"

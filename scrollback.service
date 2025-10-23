@@ -5,6 +5,7 @@
 #	usually /usr/lib/systemd/system
 # enable:
 # 	systemctl start/enable scrollback
+#	91-scrollback.rules -> /usr/lib/udev/rules.d
 
 [Unit]
 Description=Scrollback Keys
@@ -15,3 +16,4 @@ Type=oneshot
 
 [Install]
 WantedBy=default.target
+
