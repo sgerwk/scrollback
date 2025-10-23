@@ -1,10 +1,9 @@
-# scrollback service file
+# load the scrollback keys mapping
 #
 # copy:
 #	pkg-config --variable systemdsystemunitdir systemd
 #	usually /usr/lib/systemd/system
 # enable:
-# 	systemctl start/enable scrollback
 #	91-scrollback.rules -> /usr/lib/udev/rules.d
 
 [Unit]
