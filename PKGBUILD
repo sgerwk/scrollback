@@ -20,6 +20,6 @@ check() {
 
 package() {
   cd $srcdir/$pkgname
-  make DESTDIR=$pkgdir/$pkgname install
+  make DESTDIR=$pkgdir install
 }
 
