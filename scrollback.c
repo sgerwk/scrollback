@@ -131,6 +131,7 @@
 #include <utmp.h>
 #include <linux/kd.h>
 #include <linux/keyboard.h>
+#include <stdint.h>
 
 /*
  * keys for scrolling
@@ -204,6 +205,22 @@ FILE *logbuffer;
 #define BREAKOUT              "\033[0;%d%c"
 #define BREAKOUTTERMINATOR              'v'
 
+/*
+ * Attributes bitmasks (stored in high 32 bits of u_int64_t)
+ */
+#define ATTR_BOLD 			  0x0000000100000000ULL
+#define ATTR_UNDERLINE 		  0x0000000200000000ULL
+#define ATTR_REVERSE 		  0x0000000400000000ULL
+#define ATTR_FG_MASK 	      0x0000FF0000000000ULL
+#define ATTR_BG_MASK 		  0x00FF000000000000ULL
+#define ATTR_FG_SHIFT 		  40
+#define ATTR_BG_SHIFT 		  48
+#define ATTR_RESET 			  0x0000000000000000ULL
+
+/*
+ * Current active attributes
+ */
+u_int64_t current_attr = ATTR_RESET;
 /*
  * print an escape sequence in readable form
  */
@@ -470,7 +487,7 @@ void deletescript(int warn) {
  * the scrollback buffer
  */
 int buffersize;
-u_int32_t *buffer;
+u_int64_t *buffer;
 int origin;		/* start of region storing a copy of the screen */
 int show;		/* start of region that is shown when scrolling */
 
@@ -501,7 +518,9 @@ void notify(char *message) {
 void showscrollback() {
 	int size, all, rows, i;
 	char buf[10];
-	u_int32_t c, prev;
+	u_int64_t c, prev;
+	u_int64_t attr, last_attr = ATTR_RESET;
+	int fg, bg;
 
 	size = (winsize.ws_row - (show == origin ? 0 : 2)) * winsize.ws_col;
 	fprintf(stdout, MAKECURSORINVISIBLE HOMEPOSITION RESETATTRIBUTES);
@@ -516,17 +535,53 @@ void showscrollback() {
 	prev = 0;
 	for (i = 0; i < size; i++) {
 		c = buffer[(show + i) % buffersize];
-		if (singlechar) {
-			if (prev >= 0xC0 && c >= 0x80 && c < 0xC0)
+
+		// Extract attribute and char
+		attr = c & ~0xFFFFFFFFULL;
+		u_int32_t ucs_char = (u_int32_t)(c & 0xFFFFFFFFULL);
+
+		// Optimization: only print escape code if attribute changed
+		if (attr != last_attr) {
+			fprintf(stdout, "\033[0"); // Reset first
+
+			if (attr & ATTR_BOLD)
+				fprintf(stdout, ";1");
+			if (attr & ATTR_UNDERLINE)
+				fprintf(stdout, ";4");
+			if (attr & ATTR_REVERSE)
+				fprintf(stdout, ";7");
+
+			fg = (attr & ATTR_FG_MASK) >> ATTR_FG_SHIFT;
+			if (fg > 0 && fg <= 8)
+				fprintf(stdout, ";%d", 30 + fg - 1); // Standard 30-37
+			else if (fg >= 9 && fg <= 16)
+				fprintf(stdout, ";%d", 90 + fg - 9); // Bright 90-97
+
+			bg = (attr & ATTR_BG_MASK) >> ATTR_BG_SHIFT;
+			if (bg > 0 && bg <= 8)
+				fprintf(stdout, ";%d", 40 + bg - 1); // Standard 40-47
+			else if (bg >= 9 && bg <= 16)
+				fprintf(stdout, ";%d", 100 + bg - 9); // Bright 100-107
+
+			fprintf(stdout, "m");
+			last_attr = attr;
+		}
+
+		if (singlechar)	{
+			if (prev >= 0xC0 && ucs_char >= 0x80 && ucs_char < 0xC0)
 				putc(DEL, stdout);
-			putc(c, stdout);
+			putc(ucs_char, stdout);
 		}
 		else {
-			ucs4toutf8(c, buf);
+			ucs4toutf8(ucs_char, buf);
 			fputs(buf, stdout);
 		}
-		prev = c;
+		prev = ucs_char;
 	}
+
+	// Always reset attributes at end
+	fprintf(stdout, RESETATTRIBUTES);
+
 	if (show != origin) {
 		fprintf(stdout, BARDOWN "   %d lines below" ERASECURSORLINE,
 			(origin - show) / winsize.ws_col + 2);
@@ -544,7 +599,7 @@ void savebuffer(char *command) {
 	char path[4096], exe[8192];
 	int all, size, start, i;
 	char buf[10];
-	u_int32_t c;
+	u_int64_t c;
 	FILE *savefile;
 	int res;
 
@@ -565,10 +620,11 @@ void savebuffer(char *command) {
 	start = origin - all + size <= 0 ? 0 : origin - all + size;
 	for (i = 0; i < all && i < origin + size; i++) {
 		c = buffer[(start + i) % buffersize];
+		u_int32_t clean_char = (u_int32_t)(c & 0xFFFFFFFFULL);
 		if (singlechar)
-			putc(c, savefile);
+			putc(clean_char, savefile);
 		else {
-			ucs4toutf8(c, buf);
+			ucs4toutf8(clean_char, buf);
 			fputs(buf, savefile);
 		}
 	}
@@ -653,10 +709,10 @@ void erase(int startrow, int startcol, int endcol) {
 	int start, i;
 	start = winsize.ws_col * startrow;
 	for (i = start + startcol; i < start + endcol; i++)
-		buffer[(origin + i) % buffersize] = ' ';
+		buffer[(origin + i) % buffersize] = ' ' | current_attr;
 	start += winsize.ws_col;
 	for (i = start; i < winsize.ws_row * winsize.ws_col; i++)
-		buffer[(origin + i) % buffersize] = ' ';
+		buffer[(origin + i) % buffersize] = ' ' | current_attr;
 }
 
 /*
@@ -673,16 +729,90 @@ void newrow() {
 }
 
 /*
+ * parse SGR (Select Graphic Rendition) sequences
+ */
+void update_attributes(char *seq)
+{
+	int val;
+	char *ptr = seq;
+
+	// Skip Escape character and '[' bracket
+	if (*ptr == ESCAPE)
+		ptr++;
+	if (*ptr == '[')
+		ptr++;
+
+	// Handle empty case "\033[m" -> Reset
+	if (*ptr == 'm') {
+		current_attr = ATTR_RESET;
+		return;
+	}
+
+	while (*ptr) {
+		val = strtol(ptr, &ptr, 10);
+
+		if (val == 0) {
+			current_attr = ATTR_RESET;
+		}
+		else if (val == 1) {
+			current_attr |= ATTR_BOLD;
+		}
+		else if (val == 4) {
+			current_attr |= ATTR_UNDERLINE;
+		}
+		else if (val == 7) {
+			current_attr |= ATTR_REVERSE;
+		}
+		else if (val >= 30 && val <= 37) {
+			// Foreground standard (stored as 1-8)
+			current_attr &= ~ATTR_FG_MASK;
+			current_attr |= ((u_int64_t)(val - 30 + 1) << ATTR_FG_SHIFT);
+		}
+		else if (val == 39) {
+			// Foreground default
+			current_attr &= ~ATTR_FG_MASK;
+		}
+		else if (val >= 40 && val <= 47) {
+			// Background standard (stored as 1-8)
+			current_attr &= ~ATTR_BG_MASK;
+			current_attr |= ((u_int64_t)(val - 40 + 1) << ATTR_BG_SHIFT);
+		}
+		else if (val == 49)	{
+			// Background default
+			current_attr &= ~ATTR_BG_MASK;
+		}
+		else if (val >= 90 && val <= 97) {
+			// Foreground BRIGHT (stored as 9-16)
+			current_attr &= ~ATTR_FG_MASK;
+			current_attr |= ((u_int64_t)(val - 90 + 9) << ATTR_FG_SHIFT);
+		}
+		else if (val >= 100 && val <= 107) {
+			// Background BRIGHT (stored as 9-16)
+			current_attr &= ~ATTR_BG_MASK;
+			current_attr |= ((u_int64_t)(val - 100 + 9) << ATTR_BG_SHIFT);
+		}
+
+		// Skip delimiter ';' or end at 'm'
+		if (*ptr == ';')
+			ptr++;
+		else if (*ptr == 'm')
+			break;
+		else
+			break;
+	}
+}
+
+/*
  * process a character from the shell
  */
-#define SEQUENCELEN 40
+#define SEQUENCELEN 128
 char sequence[SEQUENCELEN];
 int escape = -1;
 unsigned char utf8[SEQUENCELEN];
 int utf8pos = 0, utf8len = 0;
 void shelltoterminal(int master, unsigned char c) {
 	int pos;
-	u_int32_t w;
+	u_int64_t w = 0;
 	char buf[40], t;
 	pid_t pid;
 
@@ -732,6 +862,14 @@ void shelltoterminal(int master, unsigned char c) {
 		sequence[escape] = '\0';
 		if (debug & DEBUGESCAPE)
 			fprintf(logescape, "<%s>", sequence);
+
+		// --- COLOR PARSING ---
+		// We check for 'm'. sequence[0] is ESC, sequence[1] is '['.
+		if (c == 'm' && sequence[1] == '[') {
+			update_attributes(sequence);
+			escape = -1;
+			return;
+		}
 
 		if (! strcmp(sequence, ERASEDISPLAY))
 			erase(0, 0, winsize.ws_col);
@@ -816,10 +954,13 @@ void shelltoterminal(int master, unsigned char c) {
 
 					/* update scrollback buffer */
 
+	// Combine char and attributes
+	w = (u_int64_t)w | current_attr;
+
 	pos = (origin + row * winsize.ws_col + col) % buffersize;
 	if ((c == BS || c == DEL) && col > 0) {
 		col--;
-		buffer[(buffersize + pos - 1) % buffersize] = ' ';
+		buffer[(buffersize + pos - 1) % buffersize] = ' ' | current_attr;
 	}
 	else if (c == NL || c == FF)
 		newrow();
@@ -838,7 +979,7 @@ void shelltoterminal(int master, unsigned char c) {
 
 	if (debug & DEBUGBUFFER) {
 		fseek(logbuffer, 0, SEEK_SET);
-		fwrite(buffer, sizeof(u_int32_t), buffersize, logbuffer);
+		fwrite(buffer, sizeof(u_int64_t), buffersize, logbuffer);
 	}
 }
 
@@ -1011,9 +1152,11 @@ void parent(int master, pid_t pid) {
 		logbuffer = logopen(LOGBUFFER);
 
 	disablelinebuffering();
-	buffer = malloc(sizeof(u_int32_t) * buffersize);
+
+	// Allocate u_int64_t buffer
+	buffer = malloc(sizeof(u_int64_t) * buffersize);
 	for (i = 0; i < buffersize; i++)
-		buffer[i] = ' ';
+		buffer[i] = ' ' | ATTR_RESET;
 	origin = 0;
 	show = 0;
 	positionstatus = POSITION_UNKNOWN;
