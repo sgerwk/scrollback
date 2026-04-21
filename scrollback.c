@@ -937,6 +937,8 @@ void shelltoterminal(int master, unsigned char c) {
 		utf8len = (c & 0xE0) == 0xC0 ? 1 :
 		          (c & 0xF0) == 0xE0 ? 2 :
 		          (c & 0xF8) == 0xF0 ? 3 : 0;
+		if (debug & DEBUGESCAPE)
+			fprintf(logescape, "[UTF8len:%d]", utf8len);
 		utf8pos = 0;
 		utf8[utf8pos++] = c;
 	}
@@ -956,8 +958,10 @@ void shelltoterminal(int master, unsigned char c) {
 		else {
 			utf8[utf8pos] = '\0';
 			if (debug & DEBUGESCAPE)
-				fprintf(logescape, "[UTF8:%s]", utf8);
+				fprintf(logescape, "[UTF8sequence:%s]", utf8);
 			w = utf8toucs4(utf8);
+			if (debug & DEBUGESCAPE)
+				fprintf(logescape, "[UTF8hex:0x%lX]", w);
 		}
 	}
 
