@@ -763,6 +763,15 @@ void update_attributes(char *seq)
 		else if (val == 7) {
 			current_attr |= ATTR_REVERSE;
 		}
+		else if (val == 22) {
+			current_attr &= ~ATTR_BOLD;
+		}
+		else if (val == 24) {
+			current_attr &= ~ATTR_UNDERLINE;
+		}
+		else if (val == 27) {
+			current_attr &= ~ATTR_REVERSE;
+		}
 		else if (val >= 30 && val <= 37) {
 			// Foreground standard (stored as 1-8)
 			current_attr &= ~ATTR_FG_MASK;
