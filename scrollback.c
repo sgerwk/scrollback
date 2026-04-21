@@ -188,8 +188,8 @@ FILE *logbuffer;
 #define ANSWERPOSITION        "\033[%d;%dR"
 #define SEQUENCE2ARGS         "%c[%d;%d%c"
 #define SEQUENCESTARTER        ESCAPE
-#define GETPOSITIONTERMINATOR          'R'
-#define MOVECURSORTERMINATOR           'H'
+#define GETPOSITIONTERMINATOR 'R'
+#define MOVECURSORTERMINATOR  'H'
 #define MOVECURSORUP          "\033[1A"
 #define RESETATTRIBUTES       "\033[0m"
 #define BLUEBACKGROUND        "\033[44m"
@@ -208,14 +208,14 @@ FILE *logbuffer;
 /*
  * Attributes bitmasks (stored in high 32 bits of u_int64_t)
  */
-#define ATTR_BOLD 			  0x0000000100000000ULL
-#define ATTR_UNDERLINE 		  0x0000000200000000ULL
-#define ATTR_REVERSE 		  0x0000000400000000ULL
-#define ATTR_FG_MASK 	      0x0000FF0000000000ULL
-#define ATTR_BG_MASK 		  0x00FF000000000000ULL
-#define ATTR_FG_SHIFT 		  40
-#define ATTR_BG_SHIFT 		  48
-#define ATTR_RESET 			  0x0000000000000000ULL
+#define ATTR_BOLD             0x0000000100000000ULL
+#define ATTR_UNDERLINE        0x0000000200000000ULL
+#define ATTR_REVERSE          0x0000000400000000ULL
+#define ATTR_FG_MASK          0x0000FF0000000000ULL
+#define ATTR_BG_MASK          0x00FF000000000000ULL
+#define ATTR_FG_SHIFT         40
+#define ATTR_BG_SHIFT         48
+#define ATTR_RESET            0x0000000000000000ULL
 
 /*
  * Current active attributes
