@@ -5,8 +5,8 @@
  *
  * tbd: option for the scroll control strings: scrollup, scrolldown
  * tbd: option for the scrollup/scrolldown keycodes: keycodeup, keycodedown
- * tbd: colors
  * tbd: implement common cursor movements instead of asking the position
+ * tbd: deal with zero-width and double-width characters
  */
 
 /*
