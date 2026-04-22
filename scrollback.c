@@ -977,24 +977,21 @@ void shelltoterminal(int master, unsigned char c) {
 
 					/* update scrollback buffer */
 
-	// combine char and attributes
-	w = (u_int64_t)w | current_attr;
-
 	pos = (origin + row * winsize.ws_col + col) % buffersize;
-	if ((c == BS || c == DEL) && col > 0) {
+	if ((w == BS || w == DEL) && col > 0) {
 		col--;
 		buffer[(buffersize + pos - 1) % buffersize] = ' ' | current_attr;
 	}
-	else if (c == NL || c == FF)
+	else if (w == NL || w == FF)
 		newrow();
-	else if (c == CR)
+	else if (w == CR)
 		col = 0;
 	else {
 		if (col >= winsize.ws_col) {
 			col = 0;
 			newrow();
 		}
-		buffer[pos] = w;
+		buffer[pos] = w | current_attr;
 		col++;
 	}
 	if (debug & DEBUGESCAPE)
