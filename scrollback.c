@@ -962,10 +962,10 @@ void shelltoterminal(int master, unsigned char c) {
 			w = utf8toucs4(utf8);
 			if (debug & DEBUGESCAPE)
 				fprintf(logescape, "[UTF8hex:0x%lX]", w);
-			if ((w & 0xFF00) == 0x2000) {
-				w = ' ';
+			if (w == 0x200B) {
 				if (debug & DEBUGESCAPE)
-					fprintf(logescape, "[UTF8space]");
+					fprintf(logescape, "[UTF8zerospace]");
+				return;
 			}
 			if (w >= 0x10000) {
 				w = 0xFFFD;
