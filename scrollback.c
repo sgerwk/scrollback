@@ -203,10 +203,10 @@ FILE *logbuffer;
 #define MAKECURSORVISIBLE     "\033[25h"
 #define MAKECURSORINVISIBLE   "\033[25l"
 #define BREAKOUT              "\033[0;%d%c"
-#define BREAKOUTTERMINATOR              'v'
+#define BREAKOUTTERMINATOR    'v'
 
 /*
- * Attributes bitmasks (stored in high 32 bits of u_int64_t)
+ * attributes bitmasks (stored in high 32 bits of u_int64_t)
  */
 #define ATTR_BOLD             0x0000000100000000ULL
 #define ATTR_UNDERLINE        0x0000000200000000ULL
@@ -218,9 +218,10 @@ FILE *logbuffer;
 #define ATTR_RESET            0x0000000000000000ULL
 
 /*
- * Current active attributes
+ * current active attributes
  */
 u_int64_t current_attr = ATTR_RESET;
+
 /*
  * print an escape sequence in readable form
  */
@@ -536,13 +537,13 @@ void showscrollback() {
 	for (i = 0; i < size; i++) {
 		c = buffer[(show + i) % buffersize];
 
-		// Extract attribute and char
+		// extract attribute and char
 		attr = c & ~0xFFFFFFFFULL;
 		u_int32_t ucs_char = (u_int32_t)(c & 0xFFFFFFFFULL);
 
-		// Optimization: only print escape code if attribute changed
+		// optimization: only print escape code if attribute changed
 		if (attr != last_attr) {
-			fprintf(stdout, "\033[0"); // Reset first
+			fprintf(stdout, "\033[0"); // reset first
 
 			if (attr & ATTR_BOLD)
 				fprintf(stdout, ";1");
@@ -553,15 +554,15 @@ void showscrollback() {
 
 			fg = (attr & ATTR_FG_MASK) >> ATTR_FG_SHIFT;
 			if (fg > 0 && fg <= 8)
-				fprintf(stdout, ";%d", 30 + fg - 1); // Standard 30-37
+				fprintf(stdout, ";%d", 30 + fg - 1); // standard 30-37
 			else if (fg >= 9 && fg <= 16)
-				fprintf(stdout, ";%d", 90 + fg - 9); // Bright 90-97
+				fprintf(stdout, ";%d", 90 + fg - 9); // bright 90-97
 
 			bg = (attr & ATTR_BG_MASK) >> ATTR_BG_SHIFT;
 			if (bg > 0 && bg <= 8)
-				fprintf(stdout, ";%d", 40 + bg - 1); // Standard 40-47
+				fprintf(stdout, ";%d", 40 + bg - 1); // standard 40-47
 			else if (bg >= 9 && bg <= 16)
-				fprintf(stdout, ";%d", 100 + bg - 9); // Bright 100-107
+				fprintf(stdout, ";%d", 100 + bg - 9); // bright 100-107
 
 			fprintf(stdout, "m");
 			last_attr = attr;
@@ -579,7 +580,7 @@ void showscrollback() {
 		prev = ucs_char;
 	}
 
-	// Always reset attributes at end
+	// always reset attributes at end
 	fprintf(stdout, RESETATTRIBUTES);
 
 	if (show != origin) {
@@ -731,18 +732,17 @@ void newrow() {
 /*
  * parse SGR (Select Graphic Rendition) sequences
  */
-void update_attributes(char *seq)
-{
+void update_attributes(char *seq) {
 	int val;
 	char *ptr = seq;
 
-	// Skip Escape character and '[' bracket
+	// skip escape character and '[' bracket
 	if (*ptr == ESCAPE)
 		ptr++;
 	if (*ptr == '[')
 		ptr++;
 
-	// Handle empty case "\033[m" -> Reset
+	// handle empty case "\033[m" -> reset
 	if (*ptr == 'm') {
 		current_attr = ATTR_RESET;
 		return;
@@ -751,57 +751,50 @@ void update_attributes(char *seq)
 	while (*ptr) {
 		val = strtol(ptr, &ptr, 10);
 
-		if (val == 0) {
+		if (val == 0)
 			current_attr = ATTR_RESET;
-		}
-		else if (val == 1) {
+		else if (val == 1)
 			current_attr |= ATTR_BOLD;
-		}
-		else if (val == 4) {
+		else if (val == 4)
 			current_attr |= ATTR_UNDERLINE;
-		}
-		else if (val == 7) {
+		else if (val == 7)
 			current_attr |= ATTR_REVERSE;
-		}
-		else if (val == 22) {
+		else if (val == 22)
 			current_attr &= ~ATTR_BOLD;
-		}
-		else if (val == 24) {
+		else if (val == 24)
 			current_attr &= ~ATTR_UNDERLINE;
-		}
-		else if (val == 27) {
+		else if (val == 27)
 			current_attr &= ~ATTR_REVERSE;
-		}
 		else if (val >= 30 && val <= 37) {
-			// Foreground standard (stored as 1-8)
+			// foreground standard (stored as 1-8)
 			current_attr &= ~ATTR_FG_MASK;
 			current_attr |= ((u_int64_t)(val - 30 + 1) << ATTR_FG_SHIFT);
 		}
 		else if (val == 39) {
-			// Foreground default
+			// foreground default
 			current_attr &= ~ATTR_FG_MASK;
 		}
 		else if (val >= 40 && val <= 47) {
-			// Background standard (stored as 1-8)
+			// background standard (stored as 1-8)
 			current_attr &= ~ATTR_BG_MASK;
 			current_attr |= ((u_int64_t)(val - 40 + 1) << ATTR_BG_SHIFT);
 		}
 		else if (val == 49)	{
-			// Background default
+			// background default
 			current_attr &= ~ATTR_BG_MASK;
 		}
 		else if (val >= 90 && val <= 97) {
-			// Foreground BRIGHT (stored as 9-16)
+			// foreground BRIGHT (stored as 9-16)
 			current_attr &= ~ATTR_FG_MASK;
 			current_attr |= ((u_int64_t)(val - 90 + 9) << ATTR_FG_SHIFT);
 		}
 		else if (val >= 100 && val <= 107) {
-			// Background BRIGHT (stored as 9-16)
+			// background BRIGHT (stored as 9-16)
 			current_attr &= ~ATTR_BG_MASK;
 			current_attr |= ((u_int64_t)(val - 100 + 9) << ATTR_BG_SHIFT);
 		}
 
-		// Skip delimiter ';' or end at 'm'
+		// skip delimiter ';' or end at 'm'
 		if (*ptr == ';')
 			ptr++;
 		else if (*ptr == 'm')
@@ -872,8 +865,8 @@ void shelltoterminal(int master, unsigned char c) {
 		if (debug & DEBUGESCAPE)
 			fprintf(logescape, "<%s>", sequence);
 
-		// --- COLOR PARSING ---
-		// We check for 'm'. sequence[0] is ESC, sequence[1] is '['.
+		// --- color parsing ---
+		// we check for 'm'. sequence[0] is ESC, sequence[1] is '['.
 		if (c == 'm' && sequence[1] == '[') {
 			update_attributes(sequence);
 			escape = -1;
@@ -977,7 +970,7 @@ void shelltoterminal(int master, unsigned char c) {
 
 					/* update scrollback buffer */
 
-	// Combine char and attributes
+	// combine char and attributes
 	w = (u_int64_t)w | current_attr;
 
 	pos = (origin + row * winsize.ws_col + col) % buffersize;
@@ -1176,7 +1169,7 @@ void parent(int master, pid_t pid) {
 
 	disablelinebuffering();
 
-	// Allocate u_int64_t buffer
+	// allocate u_int64_t buffer
 	buffer = malloc(sizeof(u_int64_t) * buffersize);
 	for (i = 0; i < buffersize; i++)
 		buffer[i] = ' ' | ATTR_RESET;
