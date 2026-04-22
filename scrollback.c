@@ -521,6 +521,7 @@ void showscrollback() {
 	char buf[10];
 	u_int64_t c, prev;
 	u_int64_t attr, last_attr = ATTR_RESET;
+	u_int32_t ucs_char;
 	int fg, bg;
 
 	size = (winsize.ws_row - (show == origin ? 0 : 2)) * winsize.ws_col;
@@ -541,7 +542,7 @@ void showscrollback() {
 
 		// extract attribute and char
 		attr = c & ~0xFFFFFFFFULL;
-		u_int32_t ucs_char = (u_int32_t)(c & 0xFFFFFFFFULL);
+		ucs_char = (u_int32_t) (c & 0xFFFFFFFFULL);
 
 		// optimization: only print escape code if attribute changed
 		if (attr != last_attr) {
@@ -570,7 +571,7 @@ void showscrollback() {
 			last_attr = attr;
 		}
 
-		if (singlechar)	{
+		if (singlechar) {
 			if (prev >= 0xC0 && ucs_char >= 0x80 && ucs_char < 0xC0)
 				putc(DEL, stdout);
 			putc(ucs_char, stdout);
