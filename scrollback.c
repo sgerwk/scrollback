@@ -962,15 +962,18 @@ void shelltoterminal(int master, unsigned char c) {
 			w = utf8toucs4(utf8);
 			if (debug & DEBUGESCAPE)
 				fprintf(logescape, "[UTF8hex:0x%lX]", w);
+			// rough workarounds for non-single-width characters
+			// ucs_width_table.h in kernel source
+			// from gen_ucs_width_table.py
 			if (w == 0x200B) {
 				if (debug & DEBUGESCAPE)
-					fprintf(logescape, "[UTF8zerospace]");
+					fprintf(logescape, "[UTF8zerowidth]");
 				return;
 			}
 			if (w >= 0x10000) {
-				w = 0xFFFD;
 				if (debug & DEBUGESCAPE)
-					fprintf(logescape, "[UTF8replace]");
+					fprintf(logescape, "[UTF8doublewidth]");
+				w = 0xFFFD;
 			}
 		}
 	}
