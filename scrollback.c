@@ -533,6 +533,8 @@ void showscrollback() {
 			fprintf(stdout, BARUP);
 		fprintf(stdout, ERASECURSORLINE "\r\n");
 	}
+	if (debug & DEBUGESCAPE)
+		fprintf(logescape, "[showscreen:%d]", size);
 	prev = 0;
 	for (i = 0; i < size; i++) {
 		c = buffer[(show + i) % buffersize];
@@ -745,6 +747,8 @@ void update_attributes(char *seq) {
 	// handle empty case "\033[m" -> reset
 	if (*ptr == 'm') {
 		current_attr = ATTR_RESET;
+		if (debug & DEBUGESCAPE)
+			fprintf(logescape, "[attr:reset]");
 		return;
 	}
 
@@ -793,6 +797,8 @@ void update_attributes(char *seq) {
 			current_attr &= ~ATTR_BG_MASK;
 			current_attr |= ((u_int64_t)(val - 100 + 9) << ATTR_BG_SHIFT);
 		}
+		if (debug & DEBUGESCAPE)
+			fprintf(logescape, "[attr:0x%08lX]", current_attr >> 32);
 
 		// skip delimiter ';' or end at 'm'
 		if (*ptr == ';')
@@ -1050,6 +1056,8 @@ void terminaltoshell(int master, unsigned char c, int next) {
 					return;
 				pos = origin;
 			}
+			if (debug & DEBUGESCAPE)
+				fprintf(logescape, "[DOWN]");
 		}
 		else if (! strcmp(specialsequence, KEYF2) && show != origin) {
 			savebuffer(NULL);
